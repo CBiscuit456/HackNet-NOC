@@ -1,0 +1,18 @@
+# Environments
+.hacknet_env/
+.env
+
+# Databases and state files
+metrics.db
+metrics.db-wal
+metrics.db-shm
+metrics.db.bak
+metrics.db.corrupt
+
+# Python cache
+__pycache__/
+*.pyc
+
+# OS/System files
+.DS_Store
+.lgd-nfy0

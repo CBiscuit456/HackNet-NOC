@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOC Administration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@400;700;800&display=swap');
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #000000; 
+            color: #e4e4e7; 
+        }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+        .glass-panel {
+            background: rgba(10, 10, 10, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+        }
+
+        .text-neon-green { color: #39ff14; }
+        .border-neon-green { border-color: #39ff14; }
+        .text-neon-purple { color: #b026ff; }
+        .border-neon-purple { border-color: #b026ff; }
+        
+        .dark-input {
+            background-color: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        .dark-input:focus { outline: none; border-color: #39ff14; box-shadow: 0 0 10px rgba(57, 255, 20, 0.2); }
+
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgba(57, 255, 20, 0.5); }
+    </style>
+</head>
+<body class="min-h-screen relative pb-10">
+
+    <div class="fixed inset-0 z-0 bg-[url('/static/boot_logo.jpeg')] bg-cover bg-center bg-no-repeat opacity-30"></div>
+    <div class="fixed inset-0 z-0 bg-black/80 backdrop-blur-md"></div> 
+
+    <div x-data="adminApp()" x-init="checkAuth()" class="relative z-10 max-w-[1700px] mx-auto p-4 md:p-8" x-cloak>
+        
+        <!-- HEADER -->
+        <header class="flex flex-col md:flex-row justify-between items-end mb-8 pb-4 border-b border-zinc-800">
+            <div>
+                <h1 class="text-4xl font-black text-white tracking-tighter drop-shadow-lg">
+                    HACKNET <span class="text-neon-green">ADMIN</span>
+                </h1>
+                <p class="text-zinc-500 font-mono text-xs mt-1 uppercase tracking-widest">Sensor Management & Audit Console</p>
+            </div>
+            <a href="/" class="mt-4 md:mt-0 px-6 py-2.5 glass-panel hover:bg-zinc-900 border border-zinc-700 text-white rounded text-sm font-black uppercase tracking-widest transition-colors flex items-center gap-2">
+                <svg class="w-5 h-5 text-neon-green" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                NOC Display
+            </a>
+        </header>
+
+        <!-- LOGIN SCREEN -->
+        <div x-show="!isAuthenticated" class="glass-panel p-8 rounded-xl max-w-md mx-auto text-center mt-20">
+            <div class="w-16 h-16 bg-black border border-zinc-800 text-neon-green rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_15px_rgba(57,255,20,0.2)]">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            </div>
+            <h2 class="text-2xl font-black mb-2 text-white tracking-wide uppercase">Admin Access</h2>
+            <p class="text-zinc-500 font-mono text-xs mb-6 uppercase tracking-wider">Authentication Required</p>
+            <input type="password" x-model="password" @keyup.enter="login()" placeholder="Enter Authorization Key..." class="dark-input w-full rounded p-3 mb-6 text-center font-mono text-lg">
+            <button @click="login()" class="w-full bg-[#39ff14]/90 hover:bg-[#39ff14] text-black font-black uppercase tracking-widest py-3 rounded shadow-[0_0_15px_rgba(57,255,20,0.3)] transition-all">Authenticate</button>
+        </div>
+
+        <!-- MAIN SPLIT DASHBOARD -->
+        <div x-show="isAuthenticated" class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            
+            <!-- LEFT COLUMN: SENSORS -->
+            <div class="xl:col-span-2 space-y-8">
+                
+                <!-- ADD / EDIT SENSOR FORM -->
+                <div class="glass-panel p-6 md:p-8 rounded-xl border-t-4 transition-colors relative" :class="isEditing ? 'border-neon-purple' : 'border-neon-green'">
+                    <div class="flex justify-between items-center mb-6 border-b border-zinc-800 pb-3">
+                        <h2 class="text-lg font-black text-white uppercase tracking-wider" x-text="isEditing ? 'Edit Sensor Configuration' : 'Deploy New Sensor'"></h2>
+                        <button x-show="isEditing" @click="cancelEdit()" class="text-[10px] font-black text-red-500 hover:text-red-400 uppercase tracking-widest bg-red-500/10 border border-red-500/30 px-3 py-1.5 rounded transition-colors">Cancel Edit</button>
+                    </div>
+
+                    <form @submit.prevent="saveTarget()" class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        <div class="md:col-span-4">
+                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Sensor Name</label>
+                            <input x-model="form.name" type="text" placeholder="e.g. Ark_Server" class="dark-input w-full rounded p-2.5 font-mono text-sm" required>
+                        </div>
+                        <div class="md:col-span-3">
+                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Type</label>
+                            <select x-model="form.entity_type" class="dark-input w-full rounded p-2.5 font-mono text-sm" required>
+                                <option value="" disabled>Select...</option>
+                                <option value="network">Network (Ping)</option>
+                                <option value="app">App (TCP Port)</option>
+                                <option value="game">Game (Pterodactyl)</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-3">
+                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">IP Address</label>
+                            <input x-model="form.target_address" type="text" placeholder="10.10.x.x" class="dark-input w-full rounded p-2.5 font-mono text-sm">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Port</label>
+                            <input x-model="form.port" type="number" placeholder="80" class="dark-input w-full rounded p-2.5 font-mono text-sm">
+                        </div>
+
+                        <div class="md:col-span-4">
+                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Alert Priority (Cooldown)</label>
+                            <select x-model="form.cooldown_interval" class="dark-input w-full rounded p-2.5 font-mono text-sm">
+                                <option value="600">High (10 Mins)</option>
+                                <option value="1200">Elevated (20 Mins)</option>
+                                <option value="3600">Standard (1 Hour)</option>
+                                <option value="14400">Low (4 Hours)</option>
+                                <option value="86400">Daily (24 Hours)</option>
+                            </select>
+                        </div>
+
+                        <!-- Thresholds (Dynamic display based on type) -->
+                        <div x-show="['host', 'vm', 'lxc', 'game'].includes(form.entity_type)" class="md:col-span-2">
+                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">CPU Alert %</label>
+                            <input x-model="form.cpu_threshold" type="number" step="0.1" placeholder="90.0" class="dark-input w-full rounded p-2.5 font-mono text-sm text-neon-green">
+                        </div>
+                        
+                        <div x-show="['host', 'vm', 'lxc', 'game'].includes(form.entity_type)" class="md:col-span-2">
+                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">RAM Alert %</label>
+                            <input x-model="form.mem_threshold" type="number" step="0.1" placeholder="90.0" class="dark-input w-full rounded p-2.5 font-mono text-sm text-neon-purple">
+                        </div>
+
+                        <div class="md:col-span-4 flex items-end">
+                            <button type="submit" class="w-full font-black uppercase tracking-widest py-2.5 rounded shadow-lg transition-all border"
+                                    :class="isEditing ? 'bg-neon-purple/20 text-neon-purple border-neon-purple hover:bg-neon-purple hover:text-black shadow-[0_0_15px_rgba(176,38,255,0.2)]' : 'bg-[#39ff14]/20 text-neon-green border-neon-green hover:bg-[#39ff14] hover:text-black shadow-[0_0_15px_rgba(57,255,20,0.2)]'"
+                                    x-text="isEditing ? 'Save Changes' : 'Deploy Target'"></button>
+                        </div>
+                        
+                        <div x-show="form.entity_type === 'game'" class="md:col-span-12 mt-2 pt-4 border-t border-zinc-800">
+                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Pterodactyl Server UUID</label>
+                            <input x-model="form.uuid" type="text" placeholder="Enter full server UUID..." class="dark-input w-full md:w-1/2 rounded p-2.5 font-mono text-sm">
+                        </div>
+                    </form>
+                </div>
+
+                <!-- SENSOR LIST W/ TABS & SEARCH -->
+                <div class="glass-panel rounded-xl overflow-hidden flex flex-col">
+                    
+                    <!-- Filters & Search -->
+                    <div class="bg-black/80 p-4 border-b border-zinc-800 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div class="flex gap-2">
+                            <template x-for="tab in tabs" :key="tab.id">
+                                <button @click="activeTab = tab.id" 
+                                        class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-widest transition-colors border"
+                                        :class="activeTab === tab.id ? 'bg-neon-green/20 text-neon-green border-neon-green/50' : 'bg-transparent text-zinc-500 border-transparent hover:text-zinc-300'"
+                                        x-text="tab.label"></button>
+                            </template>
+                        </div>
+                        <div class="relative w-full md:w-64">
+                            <input x-model="searchQuery" type="text" placeholder="Search sensors..." class="dark-input w-full rounded-full py-1.5 pl-4 pr-10 text-xs font-mono">
+                            <svg class="w-4 h-4 text-zinc-500 absolute right-3 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                    </div>
+
+                    <!-- Data Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse min-w-[800px]">
+                            <thead class="bg-black/40 border-b border-zinc-800 text-zinc-500 text-[10px] uppercase tracking-widest font-black">
+                                <tr>
+                                    <th class="px-5 py-3">State</th>
+                                    <th class="px-5 py-3">Sensor Name</th>
+                                    <th class="px-5 py-3">Type</th>
+                                    <th class="px-5 py-3">Config / Address</th>
+                                    <th class="px-5 py-3 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-zinc-800/50">
+                                <tr x-show="filteredTargets.length === 0">
+                                    <td colspan="5" class="px-5 py-8 text-center text-zinc-600 font-mono text-xs uppercase tracking-widest">No sensors match your filter</td>
+                                </tr>
+                                <template x-for="t in filteredTargets" :key="t.entity_name + t.entity_type">
+                                    <tr class="hover:bg-zinc-900/50 transition-colors">
+                                        <td class="px-5 py-3 whitespace-nowrap">
+                                            <span class="px-2 py-1 text-[10px] font-black tracking-widest rounded border uppercase"
+                                                  :class="t.is_enabled === 0 ? 'bg-zinc-900 border-zinc-700 text-zinc-500' : 'bg-emerald-900/30 border-emerald-500/50 text-emerald-400'"
+                                                  x-text="t.is_enabled === 0 ? 'PAUSED' : 'MONITORING'"></span>
+                                        </td>
+                                        <td class="px-5 py-3 whitespace-nowrap font-black text-white uppercase tracking-wider text-sm" x-text="t.entity_name"></td>
+                                        <td class="px-5 py-3 whitespace-nowrap">
+                                            <span class="text-[9px] font-mono font-bold bg-black border border-zinc-800 text-zinc-400 px-2 py-1 rounded uppercase tracking-widest" x-text="t.entity_type"></span>
+                                        </td>
+                                        <td class="px-5 py-3 whitespace-nowrap font-mono text-xs text-zinc-400 flex flex-col gap-1">
+                                            <span class="truncate max-w-[200px]" title="Address" x-text="t.target_address || t.uuid || 'N/A'"></span>
+                                            <div class="flex gap-2 text-[9px] font-bold uppercase tracking-widest">
+                                                <span class="text-cyan-500" x-text="'PRIORITY: ' + getCooldownText(t.cooldown_interval)"></span>
+                                                <span x-show="t.cpu_threshold" class="text-amber-500" x-text="'CPU: ' + t.cpu_threshold + '%'"></span>
+                                                <span x-show="t.mem_threshold" class="text-neon-purple" x-text="'RAM: ' + t.mem_threshold + '%'"></span>
+                                            </div>
+                                        </td>
+                                        <td class="px-5 py-3 whitespace-nowrap text-right font-mono text-[10px] uppercase tracking-widest font-bold">
+                                            <button @click="editTarget(t)" class="text-neon-purple hover:text-white px-2 py-1 mr-1 transition-colors border border-transparent hover:border-neon-purple rounded">Edit</button>
+                                            <button @click="toggleTarget(t)" class="px-2 py-1 mr-1 transition-colors border rounded"
+                                                    :class="t.is_enabled === 1 ? 'text-amber-500 border-amber-500/30 hover:border-amber-500' : 'text-neon-green border-neon-green/30 hover:border-neon-green'"
+                                                    x-text="t.is_enabled === 1 ? 'Pause' : 'Resume'"></button>
+                                            <button @click="deleteTarget(t)" class="text-red-500 hover:text-white border border-transparent hover:border-red-500 px-2 py-1 transition-colors rounded">Delete</button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: CONTROLS & LOGS -->
+            <div class="space-y-6">
+                <!-- SYSTEM CONTROLS -->
+                <div class="glass-panel p-5 rounded-xl border border-zinc-700/50">
+                    <h3 class="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-4 border-b border-zinc-800 pb-2">System Directives</h3>
+                    
+                    <button @click="forcePoll()" class="w-full mb-4 px-4 py-3 bg-black border border-zinc-700 hover:border-neon-green hover:shadow-[0_0_15px_rgba(57,255,20,0.15)] text-white font-black uppercase tracking-widest rounded transition-all flex justify-between items-center group">
+                        <span class="text-[10px]">Force Poll Network</span>
+                        <svg class="w-4 h-4 text-zinc-600 group-hover:text-neon-green transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    </button>
+
+                    <button @click="toggleMute()" class="w-full px-4 py-3 font-black uppercase tracking-widest rounded transition-all flex justify-between items-center border"
+                            :class="settings.global_mute === '1' ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'bg-black hover:bg-zinc-900 text-zinc-400 border-zinc-700 hover:border-zinc-500'">
+                        <span class="text-[10px]" x-text="settings.global_mute === '1' ? 'Unmute Alerts' : 'Mute Telegram Alerts'"></span>
+                        <svg x-show="settings.global_mute !== '1'" class="w-4 h-4 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                        <svg x-show="settings.global_mute === '1'" class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h3.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
+                    </button>
+                </div>
+
+                <!-- AUDIT LOG -->
+                <div class="glass-panel rounded-xl flex flex-col h-[600px] border border-zinc-700/50">
+                    <div class="p-4 border-b border-zinc-800 shrink-0 flex justify-between items-center bg-black/80 rounded-t-xl">
+                        <h3 class="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5 text-neon-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            System Audit Log
+                        </h3>
+                        <button @click="fetchLogs()" class="text-zinc-500 hover:text-white transition-colors" title="Refresh Logs">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        </button>
+                    </div>
+                    
+                    <div class="flex-1 overflow-y-auto custom-scroll p-3 bg-black/40">
+                        <div x-show="logs.length === 0" class="text-center text-zinc-600 font-mono text-[10px] mt-10 uppercase tracking-widest">No events logged</div>
+                        
+                        <div class="space-y-2">
+                            <template x-for="log in logs" :key="log.timestamp + log.entity_name + Math.random()">
+                                <div class="p-3 rounded border bg-black/60 transition-colors"
+                                     :class="log.event_type === 'CRITICAL' ? 'border-red-900/50' : 'border-zinc-800'">
+                                    <div class="flex justify-between items-start mb-1.5">
+                                        <span class="text-[10px] font-black font-mono text-white uppercase tracking-wider" x-text="log.entity_name"></span>
+                                        <span class="text-[8px] font-mono font-bold text-zinc-500 tracking-widest uppercase" x-text="formatLogTime(log.timestamp)"></span>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <div class="w-1.5 h-1.5 rounded-full mt-1 shrink-0"
+                                             :class="log.event_type === 'CRITICAL' ? 'bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.8)]' : 'bg-neon-green shadow-[0_0_5px_rgba(57,255,20,0.8)]'"></div>
+                                        <span class="text-[10px] font-mono leading-relaxed"
+                                              :class="log.event_type === 'CRITICAL' ? 'text-red-300' : 'text-emerald-300'" x-text="log.message"></span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function adminApp() {
+            return {
+                isAuthenticated: false,
+                password: '',
+                targets: [],
+                logs: [],
+                settings: { global_mute: '0' },
+                isEditing: false,
+                
+                searchQuery: '',
+                activeTab: 'all',
+                tabs: [
+                    { id: 'all', label: 'All Sensors' },
+                    { id: 'proxmox', label: 'Proxmox' },
+                    { id: 'game', label: 'Games' },
+                    { id: 'app', label: 'Apps' },
+                    { id: 'network', label: 'Network' }
+                ],
+
+                form: { old_name: '', old_type: '', name: '', entity_type: '', target_address: '', port: '', uuid: '', cooldown_interval: 3600, cpu_threshold: 90.0, mem_threshold: 90.0 },
+
+                get filteredTargets() {
+                    return this.targets.filter(t => {
+                        // Tab Filter
+                        let matchesTab = false;
+                        if (this.activeTab === 'all') matchesTab = true;
+                        else if (this.activeTab === 'proxmox') matchesTab = ['host', 'vm', 'lxc'].includes(t.entity_type);
+                        else matchesTab = t.entity_type === this.activeTab;
+                        
+                        // Search Filter
+                        let matchesSearch = true;
+                        if (this.searchQuery) {
+                            const q = this.searchQuery.toLowerCase();
+                            matchesSearch = t.entity_name.toLowerCase().includes(q) || 
+                                            (t.target_address || '').toLowerCase().includes(q) ||
+                                            t.entity_type.toLowerCase().includes(q);
+                        }
+                        return matchesTab && matchesSearch;
+                    });
+                },
+
+                getCooldownText(seconds) {
+                    const s = parseInt(seconds) || 3600;
+                    if (s === 600) return "10M";
+                    if (s === 1200) return "20M";
+                    if (s === 3600) return "1H";
+                    if (s === 14400) return "4H";
+                    if (s === 86400) return "24H";
+                    return s + "S";
+                },
+                formatLogTime(ts) {
+                    const d = new Date(ts + 'Z'); 
+                    return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' }) + ' ' + d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+                },
+                checkAuth() {
+                    this.password = sessionStorage.getItem('noc_admin_key') || '';
+                    if (this.password) this.login(true);
+                },
+                async login(silent = false) {
+                    if (!this.password) return;
+                    try {
+                        const res = await fetch('/api/live');
+                        const json = await res.json();
+                        if (json.status === 'success') {
+                            this.isAuthenticated = true;
+                            sessionStorage.setItem('noc_admin_key', this.password);
+                            this.fetchData();
+                            this.fetchLogs();
+                        }
+                    } catch (e) { if (!silent) alert("Connection failed."); }
+                },
+                async fetchData() {
+                    const res = await fetch('/api/live');
+                    const json = await res.json();
+                    if (json.status === 'success') {
+                        this.targets = json.data;
+                        this.settings = json.settings || { global_mute: '0' };
+                    }
+                },
+                async fetchLogs() {
+                    if (!this.isAuthenticated) return;
+                    const res = await fetch('/api/admin/events', { headers: { 'x-api-key': this.password }});
+                    const json = await res.json();
+                    if (json.status === 'success') this.logs = json.data;
+                },
+                async _api(endpoint, payload, method='POST') {
+                    const res = await fetch(endpoint, {
+                        method: method,
+                        headers: { 'Content-Type': 'application/json', 'x-api-key': this.password },
+                        body: JSON.stringify(payload)
+                    });
+                    if (res.status === 401) {
+                        alert("Invalid Authorization Key.");
+                        this.isAuthenticated = false;
+                        sessionStorage.removeItem('noc_admin_key');
+                        return false;
+                    }
+                    if (res.status === 422) {
+                        alert("Validation Error: Please check your input format.");
+                        return false;
+                    }
+                    return true;
+                },
+                async forcePoll() {
+                    if (await this._api('/api/admin/force-poll', {})) {
+                        alert("PING COMMAND ISSUED.");
+                        setTimeout(() => { this.fetchData(); this.fetchLogs(); }, 2000);
+                    }
+                },
+                async toggleMute() {
+                    const newState = this.settings.global_mute === '1' ? 0 : 1;
+                    if (await this._api('/api/admin/sys-settings', { global_mute: newState })) this.fetchData();
+                },
+                async toggleTarget(t) {
+                    if (await this._api('/api/admin/toggle', { name: t.entity_name, entity_type: t.entity_type })) {
+                        this.fetchData();
+                        setTimeout(() => this.fetchLogs(), 1500); 
+                    }
+                },
+                async deleteTarget(t) {
+                    if (!confirm(`WIPE ${t.entity_name} FROM DATABASE?`)) return;
+                    if (await this._api('/api/admin/targets', { name: t.entity_name, entity_type: t.entity_type }, 'DELETE')) this.fetchData();
+                },
+                editTarget(t) {
+                    this.isEditing = true;
+                    this.form = { 
+                        old_name: t.entity_name, old_type: t.entity_type, 
+                        name: t.entity_name, entity_type: t.entity_type, 
+                        target_address: t.target_address || '', port: t.port || '', uuid: t.uuid || '', 
+                        cooldown_interval: t.cooldown_interval || 3600,
+                        cpu_threshold: t.cpu_threshold || 90.0,
+                        mem_threshold: t.mem_threshold || 90.0
+                    };
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                },
+                cancelEdit() {
+                    this.isEditing = false;
+                    this.form = { old_name: '', old_type: '', name: '', entity_type: '', target_address: '', port: '', uuid: '', cooldown_interval: 3600, cpu_threshold: 90.0, mem_threshold: 90.0 };
+                },
+                async saveTarget() {
+                    if (!this.form.port) this.form.port = 0;
+                    this.form.cooldown_interval = parseInt(this.form.cooldown_interval);
+                    this.form.cpu_threshold = parseFloat(this.form.cpu_threshold || 90.0);
+                    this.form.mem_threshold = parseFloat(this.form.mem_threshold || 90.0);
+                    
+                    let success = false;
+                    if (this.isEditing) success = await this._api('/api/admin/targets', this.form, 'PUT');
+                    else success = await this._api('/api/admin/targets', this.form, 'POST');
+                    
+                    if (success) { 
+                        this.cancelEdit(); 
+                        this.fetchData(); 
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
