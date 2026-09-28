@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HackNet Command Center</title>
     
-    <!-- Core Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -17,32 +16,24 @@
         body { 
             font-family: 'Inter', sans-serif; 
             background-color: #000000; 
-            overflow: hidden; 
             margin: 0; padding: 0;
+            /* Overflow handled dynamically via JS now */
         }
         
         .font-mono { font-family: 'JetBrains Mono', monospace; }
 
-        /* Pure Dark Glassmorphism */
         .glass-panel {
             background: rgba(10, 10, 10, 0.85);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.05);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
         }
 
-        /* Status Effects */
         .status-pulse-red { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); animation: pulseRed 2s infinite; border-color: rgba(239, 68, 68, 0.6); }
         .status-paused { opacity: 0.35; filter: grayscale(100%); border-color: rgba(255, 255, 255, 0.1); }
         
-        @keyframes pulseRed { 
-            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); } 
-            70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); } 
-            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } 
-        }
+        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); } 70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
 
-        /* Thicker Dials for 1080p visibility */
         .dial {
             border-radius: 50%;
             display: flex; align-items: center; justify-content: center; position: relative;
@@ -51,7 +42,6 @@
             content: ''; position: absolute; inset: 5px; background: rgba(12, 12, 12, 1); border-radius: 50%;
         }
         
-        /* Neon Accents */
         .text-neon-green { color: #39ff14; }
         .text-neon-purple { color: #b026ff; }
         .border-neon-green { border-color: #39ff14; }
@@ -59,97 +49,96 @@
 </head>
 <body class="text-zinc-200">
 
-    <!-- BACKGROUND IMAGE WITH HEAVY DARKENING -->
-    <div class="absolute inset-0 z-0 bg-[url('/static/boot_logo.jpeg')] bg-cover bg-center bg-no-repeat opacity-40"></div>
-    <div class="absolute inset-0 z-0 bg-black/75 backdrop-blur-md"></div> 
+    <div class="fixed inset-0 z-0 bg-[url('/static/boot_logo.jpeg')] bg-cover bg-center bg-no-repeat opacity-40"></div>
+    <div class="fixed inset-0 z-0 bg-black/75 backdrop-blur-md"></div> 
 
-    <!-- 1920x1080 AUTOSCALING WRAPPER -->
-    <div id="noc-wrapper" class="absolute origin-top-left w-[1920px] h-[1080px] p-8 flex flex-col z-10" x-data="nocApp()" x-init="initApp()" x-cloak>
+    <!-- RESPONSIVE WRAPPER -->
+    <div id="noc-wrapper" class="relative z-10 p-4 md:p-8 flex flex-col" x-data="nocApp()" x-init="initApp()" x-cloak>
         
         <!-- HEADER -->
-        <header class="flex justify-between items-end mb-6 shrink-0 border-b border-zinc-800/80 pb-4">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 shrink-0 border-b border-zinc-800/80 pb-4 gap-4">
             <div>
-                <h1 class="text-5xl font-black text-white tracking-tighter drop-shadow-lg flex items-center gap-4">
+                <h1 class="text-4xl md:text-5xl font-black text-white tracking-tighter drop-shadow-lg flex items-center gap-4">
                     HACKNET <span class="text-neon-green">NOC</span>
-                    <span class="text-sm font-mono text-zinc-500 font-bold tracking-widest border border-zinc-700 bg-black px-3 py-1 rounded shadow-inner">V_2.5</span>
+                    <span class="text-xs md:text-sm font-mono text-zinc-500 font-bold tracking-widest border border-zinc-700 bg-black px-3 py-1 rounded shadow-inner hidden sm:inline-block">V_2.6</span>
                 </h1>
-                <div class="flex items-center gap-4 mt-3 text-sm font-mono text-zinc-400 font-bold uppercase tracking-widest">
+                <div class="flex items-center gap-2 md:gap-4 mt-2 md:mt-3 text-xs md:text-sm font-mono text-zinc-400 font-bold uppercase tracking-widest">
                     <span class="flex items-center gap-2">
-                        <div class="w-3 h-3 rounded-full bg-neon-green animate-pulse" x-show="!isMuted"></div>
-                        <div class="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" x-show="isMuted"></div>
-                        <span class="text-white" x-text="isMuted ? 'NOTIFICATIONS MUTED' : 'SYSTEM LIVE'"></span>
+                        <div class="w-2.5 h-2.5 rounded-full bg-neon-green animate-pulse" x-show="!isMuted"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" x-show="isMuted"></div>
+                        <span class="text-white" x-text="isMuted ? 'MUTED' : 'SYSTEM LIVE'"></span>
                     </span>
                     <span class="text-zinc-700">//</span>
-                    <span class="text-white" x-text="'SYS.TIME: ' + sysTime"></span>
+                    <span class="text-white" x-text="'TIME: ' + sysTime"></span>
                 </div>
             </div>
-            <a href="/admin" class="px-6 py-3 bg-black border border-zinc-800 hover:border-neon-green text-zinc-400 hover:text-neon-green rounded text-sm font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-2 group">
-                <svg class="w-5 h-5 group-hover:text-neon-green transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            <a href="/admin" class="px-5 py-2.5 bg-black border border-zinc-800 hover:border-neon-green text-zinc-400 hover:text-neon-green rounded text-xs font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-2">
+                <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 Admin Console
             </a>
         </header>
 
         <!-- GLOBAL HEALTH RIBBON (Hero Row) -->
-        <div class="grid grid-cols-12 gap-6 mb-6 shrink-0 h-[140px]">
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 mb-6 shrink-0 xl:h-[140px]">
             
-            <!-- WAN SPARKLINE (Compressed to Span 3) -->
-            <div class="col-span-3 glass-panel rounded-xl p-5 flex flex-col relative overflow-hidden" :class="wanStatus === 'stopped' ? 'status-pulse-red bg-red-950/40' : ''">
+            <!-- WAN SPARKLINE -->
+            <div class="xl:col-span-3 glass-panel rounded-xl p-5 flex flex-col relative overflow-hidden min-h-[120px]" :class="wanStatus === 'stopped' ? 'status-pulse-red bg-red-950/40' : ''">
                 <div class="flex justify-between items-start z-10">
                     <div>
                         <h2 class="text-xs font-black text-zinc-500 tracking-widest uppercase">WAN Routing</h2>
                         <div class="text-3xl font-black font-mono mt-1 drop-shadow-md" :class="wanStatus === 'stopped' ? 'text-red-500' : 'text-neon-green'" x-text="wanStatus === 'stopped' ? 'OFFLINE' : wanPing + ' ms'"></div>
                     </div>
                 </div>
-                <div class="flex-1 relative w-full -mb-3 -ml-3 -mr-3 mt-1">
+                <div class="flex-1 relative w-full -mb-3 -ml-3 -mr-3 mt-1 min-h-[50px]">
                     <canvas id="wanChart"></canvas>
                 </div>
             </div>
 
-            <!-- PROXMOX HOST (Hero Center - Span 6) -->
-            <div class="col-span-6 glass-panel rounded-xl p-5 flex justify-between items-center relative overflow-hidden" :class="hostStatus === 'stopped' ? 'status-pulse-red' : 'border-t border-t-zinc-700'">
+            <!-- PROXMOX HOST -->
+            <div class="xl:col-span-6 glass-panel rounded-xl p-5 flex flex-row justify-between items-center relative overflow-hidden min-h-[120px]" :class="hostStatus === 'stopped' ? 'status-pulse-red' : 'border-t border-t-zinc-700'">
                 <div class="flex flex-col justify-between h-full">
                     <div>
                         <h2 class="text-xs font-black text-zinc-500 tracking-widest uppercase mb-1">Hypervisor Core</h2>
-                        <div class="text-2xl font-black text-white uppercase tracking-wider drop-shadow">CORE-PVE</div>
+                        <div class="text-xl md:text-2xl font-black text-white uppercase tracking-wider drop-shadow">CORE-PVE</div>
                     </div>
-                    <div class="mt-auto">
+                    <div class="mt-auto pt-2">
                         <span class="text-[10px] font-mono font-black tracking-widest uppercase px-2 py-0.5 rounded border"
                               :class="hostStatus === 'running' ? 'bg-[#39ff14]/10 text-neon-green border-neon-green/30' : 'bg-red-900/30 text-red-400 border-red-500/30'"
                               x-text="hostStatus === 'stopped' ? 'CRITICAL OFFLINE' : 'SYSTEM NOMINAL'"></span>
                     </div>
                 </div>
                 
-                <div class="flex gap-8" x-show="hostStatus === 'running'">
+                <div class="flex gap-4 md:gap-8" x-show="hostStatus === 'running'">
                     <div class="flex flex-col items-center">
-                        <div class="dial w-20 h-20 bg-black mb-2 shadow-lg" :style="getDialGradient(hostCpu, getCpuColor(hostCpu, hostCpuThresh))">
-                            <span class="relative z-10 text-base font-mono font-bold text-white drop-shadow-md" x-text="Math.round(hostCpu) + '%'"></span>
+                        <div class="dial w-16 h-16 md:w-20 md:h-20 bg-black mb-2 shadow-lg" :style="getDialGradient(hostCpu, getCpuColor(hostCpu, hostCpuThresh))">
+                            <span class="relative z-10 text-sm md:text-base font-mono font-bold text-white drop-shadow-md" x-text="Math.round(hostCpu) + '%'"></span>
                         </div>
-                        <span class="text-[10px] font-black text-zinc-500 tracking-widest uppercase">CPU</span>
+                        <span class="text-[9px] md:text-[10px] font-black text-zinc-500 tracking-widest uppercase">CPU</span>
                     </div>
                     <div class="flex flex-col items-center">
-                        <div class="dial w-20 h-20 bg-black mb-2 shadow-lg" :style="getDialGradient((hostMemUsed / Math.max(hostMemTotal, 1)) * 100, getRamColor((hostMemUsed / Math.max(hostMemTotal, 1)) * 100, hostMemThresh))">
-                            <span class="relative z-10 text-xs font-mono font-bold text-white drop-shadow-md" x-text="hostMemUsed.toFixed(1) + 'G'"></span>
+                        <div class="dial w-16 h-16 md:w-20 md:h-20 bg-black mb-2 shadow-lg" :style="getDialGradient((hostMemUsed / Math.max(hostMemTotal, 1)) * 100, getRamColor((hostMemUsed / Math.max(hostMemTotal, 1)) * 100, hostMemThresh))">
+                            <span class="relative z-10 text-xs md:text-sm font-mono font-bold text-white drop-shadow-md" x-text="hostMemUsed.toFixed(1) + 'G'"></span>
                         </div>
-                        <span class="text-[10px] font-black text-zinc-500 tracking-widest uppercase">RAM</span>
+                        <span class="text-[9px] md:text-[10px] font-black text-zinc-500 tracking-widest uppercase">RAM</span>
                     </div>
                 </div>
             </div>
 
-            <!-- PI-HOLE STATS (Compressed to Span 3) -->
-            <div class="col-span-3 glass-panel rounded-xl p-5 flex justify-between items-center relative overflow-hidden" :class="piholeActive ? '' : 'border-amber-500/50 bg-amber-950/30'">
+            <!-- PI-HOLE STATS -->
+            <div class="xl:col-span-3 glass-panel rounded-xl p-5 flex justify-between items-center relative overflow-hidden min-h-[120px]" :class="piholeActive ? '' : 'border-amber-500/50 bg-amber-950/30'">
                 <div class="flex flex-col justify-between h-full z-10">
                     <div>
                         <h2 class="text-xs font-black text-zinc-500 tracking-widest uppercase">DNS Sinkhole</h2>
-                        <div class="text-2xl font-black font-mono mt-1" :class="piholeActive ? 'text-neon-green' : 'text-amber-500'" x-text="piholeActive ? 'ACTIVE' : 'DEGRADED'"></div>
+                        <div class="text-xl md:text-2xl font-black font-mono mt-1" :class="piholeActive ? 'text-neon-green' : 'text-amber-500'" x-text="piholeActive ? 'ACTIVE' : 'DEGRADED'"></div>
                     </div>
-                    <div class="mt-auto font-mono text-sm space-y-1">
+                    <div class="mt-auto font-mono text-sm space-y-1 pt-2">
                         <div class="text-zinc-500 text-[10px] uppercase font-black tracking-widest">Total: <span class="text-white text-xs" x-text="(pihole.queries_today || 0).toLocaleString()"></span></div>
                         <div class="text-zinc-500 text-[10px] uppercase font-black tracking-widest">Blocks: <span class="text-neon-green text-xs" x-text="(pihole.ads_blocked || 0).toLocaleString()"></span></div>
                     </div>
                 </div>
-                <div class="dial w-20 h-20 bg-black shadow-inner z-10 shrink-0" :style="getDialGradient(pihole.ads_percentage || 0, '#39ff14')">
+                <div class="dial w-16 h-16 md:w-20 md:h-20 bg-black shadow-inner z-10 shrink-0 ml-4" :style="getDialGradient(pihole.ads_percentage || 0, '#39ff14')">
                     <div class="relative z-10 flex flex-col items-center justify-center">
-                        <span class="text-lg font-black font-mono text-white leading-none drop-shadow-md" x-text="Math.round(pihole.ads_percentage || 0) + '%'"></span>
+                        <span class="text-sm md:text-lg font-black font-mono text-white leading-none drop-shadow-md" x-text="Math.round(pihole.ads_percentage || 0) + '%'"></span>
                     </div>
                 </div>
             </div>
@@ -161,12 +150,11 @@
                 <div x-show="getFiltered(category.filter).length > 0" class="flex flex-col">
                     <h3 class="text-[10px] font-black text-zinc-600 uppercase tracking-[0.25em] mb-3 border-b border-zinc-800/50 pb-2" x-text="category.title"></h3>
                     
-                    <div class="grid grid-cols-6 lg:grid-cols-7 2xl:grid-cols-8 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
                         <template x-for="t in getFiltered(category.filter)" :key="t.entity_name">
-                            <div class="glass-panel rounded-xl p-4 flex flex-col justify-between transition-all h-[140px]"
+                            <div class="glass-panel rounded-xl p-4 flex flex-col justify-between transition-all min-h-[150px]"
                                  :class="{
                                     'status-paused': t.is_enabled === 0,
-                                    'status-green': t.status === 'running' && t.is_enabled === 1,
                                     'status-pulse-red bg-red-950/40': t.status === 'stopped' && t.is_enabled === 1
                                  }">
                                 
@@ -179,14 +167,13 @@
                                     </div>
                                 </div>
 
-                                <div x-show="t.status === 'stopped' && t.is_enabled === 1" class="flex-1 flex flex-col justify-center items-center bg-red-950/50 rounded-lg border border-red-500/30 mt-2">
+                                <div x-show="t.status === 'stopped' && t.is_enabled === 1" class="flex-1 flex flex-col justify-center items-center bg-red-950/50 rounded-lg border border-red-500/30 mt-2 p-2">
                                     <div class="text-red-500 text-[10px] font-black uppercase tracking-widest mb-1">Failure</div>
                                     <div class="text-red-300 font-mono text-sm font-bold" x-text="formatTime(t.down_since)"></div>
                                 </div>
 
-                                <div x-show="t.status === 'running' && t.is_enabled === 1" class="flex justify-around items-end flex-1 pb-1">
+                                <div x-show="t.status === 'running' && t.is_enabled === 1" class="flex justify-around items-end flex-1 pb-1 pt-2">
                                     
-                                    <!-- CPU Dial (Uses Dynamic Threshold) -->
                                     <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
                                         <div class="flex flex-col items-center">
                                             <div class="dial w-12 h-12 bg-black mb-1 shadow-lg" :style="getDialGradient(t.cpu_usage || 0, getCpuColor(t.cpu_usage, t.cpu_threshold))">
@@ -196,7 +183,6 @@
                                         </div>
                                     </template>
 
-                                    <!-- RAM Dial (Uses Dynamic Threshold) -->
                                     <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
                                         <div class="flex flex-col items-center">
                                             <div class="dial w-12 h-12 bg-black mb-1 shadow-lg" :style="getDialGradient((t.mem_used / Math.max(t.mem_total, 1)) * 100, getRamColor((t.mem_used / Math.max(t.mem_total, 1)) * 100, t.mem_threshold))">
@@ -206,17 +192,15 @@
                                         </div>
                                     </template>
 
-                                    <!-- Network Ping -->
                                     <template x-if="t.entity_type === 'network'">
-                                        <div class="w-full bg-black/60 rounded py-2 border border-zinc-800/50 flex flex-col items-center justify-center h-full mt-2 shadow-inner">
+                                        <div class="w-full bg-black/60 rounded py-2 border border-zinc-800/50 flex flex-col items-center justify-center h-full shadow-inner">
                                             <span class="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1">Latency</span>
                                             <span class="text-xl font-mono font-black text-neon-green drop-shadow" x-text="(t.ping_ms || 0).toFixed(0) + 'ms'"></span>
                                         </div>
                                     </template>
 
-                                    <!-- App Port -->
                                     <template x-if="t.entity_type === 'app'">
-                                        <div class="w-full bg-black/60 rounded py-2 border border-zinc-800/50 flex flex-col items-center justify-center h-full mt-2 shadow-inner">
+                                        <div class="w-full bg-black/60 rounded py-2 border border-zinc-800/50 flex flex-col items-center justify-center h-full shadow-inner">
                                             <span class="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1">TCP Port</span>
                                             <span class="text-sm font-mono font-black text-neon-purple uppercase tracking-widest">ACTIVE</span>
                                         </div>
@@ -231,13 +215,28 @@
     </div>
 
     <script>
+        // SMART SCALER: Locks to 1080p on TVs/Desktops. Restores native scrolling on Mobile/Tablets.
         function initScaler() {
             const wrapper = document.getElementById('noc-wrapper');
             const scaleApp = () => {
-                const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
-                wrapper.style.transform = `scale(${scale})`;
-                wrapper.style.left = `${(window.innerWidth - (1920 * scale)) / 2}px`;
-                wrapper.style.top = `${(window.innerHeight - (1080 * scale)) / 2}px`;
+                if (window.innerWidth >= 1280) { // TV / Desktop
+                    document.body.style.overflow = 'hidden';
+                    wrapper.style.position = 'absolute';
+                    wrapper.style.width = '1920px';
+                    wrapper.style.height = '1080px';
+                    const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+                    wrapper.style.transform = `scale(${scale})`;
+                    wrapper.style.left = `${(window.innerWidth - (1920 * scale)) / 2}px`;
+                    wrapper.style.top = `${(window.innerHeight - (1080 * scale)) / 2}px`;
+                } else { // Mobile / Tablet
+                    document.body.style.overflow = 'auto';
+                    wrapper.style.position = 'relative';
+                    wrapper.style.width = '100%';
+                    wrapper.style.height = 'auto';
+                    wrapper.style.transform = 'none';
+                    wrapper.style.left = '0';
+                    wrapper.style.top = '0';
+                }
             };
             window.addEventListener('resize', scaleApp);
             scaleApp();
@@ -265,9 +264,9 @@
                 chartObj: null,
 
                 categories: [
-                    { id: 'proxmox', title: 'Virtualization', filter: ['vm', 'lxc'] },
+                    { id: 'proxmox', title: 'Virtualization & Hypervisor', filter: ['vm', 'lxc'] },
                     { id: 'games', title: 'Pterodactyl Game Engines', filter: ['game'] },
-                    { id: 'services', title: 'Applications & Network', filter: ['network', 'app'] }
+                    { id: 'services', title: 'Core Applications & Network', filter: ['network', 'app'] }
                 ],
 
                 initApp() {
@@ -311,7 +310,6 @@
                             this.piholeActive = ['enabled', 'active', 'blocking'].includes(ps) || (this.pihole.queries_today > 0);
                             this.isMuted = (json.settings && json.settings.global_mute === '1');
 
-                            // Extract Host (CORE-PVE)
                             const host = this.targets.find(t => t.entity_name === 'CORE-PVE');
                             if (host) {
                                 this.hostStatus = host.status;
@@ -322,14 +320,12 @@
                                 this.hostMemThresh = host.mem_threshold || 90.0;
                             }
 
-                            // Extract WAN
                             const wan = this.targets.find(t => t.entity_name === 'WAN_DNS');
                             if (wan) {
                                 this.wanPing = (wan.ping_ms || 0).toFixed(0);
                                 this.wanStatus = wan.status;
                             }
                             
-                            // Instantly Update Graph with history array from backend
                             if (json.wan_history && json.wan_history.length > 0) {
                                 const padded = [...Array(Math.max(0, 60 - json.wan_history.length)).fill(0), ...json.wan_history];
                                 this.chartObj.data.datasets[0].data = padded;
@@ -346,15 +342,15 @@
                 },
 
                 getCpuColor(val, threshold = 90.0) {
-                    if (val >= threshold) return '#ef4444'; // Red (Threshold Breached)
-                    if (val >= (threshold * 0.8)) return '#f59e0b'; // Amber warning at 80%
-                    return '#39ff14'; // Neon Green
+                    if (val >= threshold) return '#ef4444'; 
+                    if (val >= (threshold * 0.8)) return '#f59e0b'; 
+                    return '#39ff14'; 
                 },
                 
                 getRamColor(val, threshold = 90.0) {
-                    if (val >= threshold) return '#ef4444'; // Red
-                    if (val >= (threshold * 0.8)) return '#f59e0b'; // Amber
-                    return '#b026ff'; // Neon Purple
+                    if (val >= threshold) return '#ef4444'; 
+                    if (val >= (threshold * 0.8)) return '#f59e0b'; 
+                    return '#b026ff'; 
                 },
 
                 getDialGradient(percent, color) {
@@ -375,6 +371,8 @@
     </script>
 </body>
 </html>
+
+
 
 
 
