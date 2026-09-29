@@ -38,9 +38,6 @@ LAST_DAILY_REPORT_DAY = None
 GAME_ESCALATION_TIME = 86400
 GAME_ESCALATION_COOLDOWN = 86400
 
-# ==========================================
-# UTILITY & LOGGING FUNCTIONS
-# ==========================================
 def format_time_delta(seconds):
     days, seconds = divmod(int(seconds), 86400)
     hours, seconds = divmod(seconds, 3600)
@@ -71,13 +68,13 @@ def generate_full_report(title="📊 <b>NOC Status Report</b>"):
     try:
         conn = sqlite3.connect(DB_NAME, timeout=15)
         conn.row_factory = sqlite3.Row
-        rows = conn.execute("SELECT m.entity_name, m.entity_type, m.status, m.ping_ms, m.cpu_usage, m.mem_used, t.is_enabled FROM metrics m LEFT JOIN monitored_targets t ON m.entity_name = t.name AND m.entity_type = t.entity_type WHERE m.id IN (SELECT MAX(id) FROM metrics GROUP BY entity_name, entity_type)").fetchall()
+        rows = conn.execute("SELECT m.entity_name, m.entity_type, m.status, m.ping_ms, m.cpu_usage, m.mem_used, t.is_enabled FROM latest_metrics m LEFT JOIN monitored_targets t ON m.entity_name = t.name AND m.entity_type = t.entity_type").fetchall()
         conn.close()
     except Exception:
         return
 
-    net_down, vm_down, lxc_down, app_down, game_down = [], [], [], [], []
-    vms_tot, lxc_tot, app_tot, game_tot = 0, 0, 0, 0
+    net_down, vm_down, lxc_down, app_down, game_down, storage_down = [], [], [], [], [], []
+    vms_tot, lxc_tot, app_tot, game_tot, storage_tot = 0, 0, 0, 0, 0
     host_str, net_wan = "OFFLINE", "OFFLINE"
     unmonitored = []
 
@@ -92,6 +89,9 @@ def generate_full_report(title="📊 <b>NOC Status Report</b>"):
             if n == 'WAN_DNS' and is_up: net_wan = f"{r['ping_ms']:.0f}ms"
         elif t == 'host':
             if is_up: host_str = f"{r['cpu_usage']:.1f}% CPU | {r['mem_used']:.1f}GB RAM"
+        elif t == 'storage':
+            storage_tot += 1
+            if not is_up: storage_down.append(n)
         elif t == 'vm':
             vms_tot += 1
             if not is_up: vm_down.append(n)
@@ -105,8 +105,11 @@ def generate_full_report(title="📊 <b>NOC Status Report</b>"):
             game_tot += 1
             if not is_up: game_down.append(n)
 
-    def fmt(tot, down): return f"🟢 {tot - len(down)}/{tot} UP" if not down else f"🔴 {tot - len(down)}/{tot} UP [{', '.join(down)}]"
-    msg = f"{title}\n\n🌐 <b>NETWORK:</b> {'🟢 ONLINE' if not net_down else '🔴 FAIL ['+', '.join(net_down)+']'} (WAN: {net_wan})\n🖥️ <b>HOST:</b> {host_str}\n📦 <b>VMs:</b> {fmt(vms_tot, vm_down)}\n📦 <b>LXCs:</b> {fmt(lxc_tot, lxc_down)}\n🔌 <b>WEB:</b> {fmt(app_tot, app_down)}\n🎮 <b>GAMES:</b> {fmt(game_tot, game_down)}"
+    def fmt(tot, down):
+        if tot == 0: return "⚪ N/A"
+        return f"🟢 {tot - len(down)}/{tot} UP" if not down else f"🔴 {tot - len(down)}/{tot} UP [{', '.join(down)}]"
+        
+    msg = f"{title}\n\n🌐 <b>NETWORK:</b> {'🟢 ONLINE' if not net_down else '🔴 FAIL ['+', '.join(net_down)+']'} (WAN: {net_wan})\n🖥️ <b>HOST:</b> {host_str}\n💾 <b>STORAGE:</b> {fmt(storage_tot, storage_down)}\n📦 <b>VMs:</b> {fmt(vms_tot, vm_down)}\n📦 <b>LXCs:</b> {fmt(lxc_tot, lxc_down)}\n🔌 <b>WEB:</b> {fmt(app_tot, app_down)}\n🎮 <b>GAMES:</b> {fmt(game_tot, game_down)}"
     if unmonitored: msg += f"\n\n🔧 <b>UNMONITORED:</b> [{', '.join(unmonitored)}]"
     send_telegram(msg)
 
@@ -117,24 +120,30 @@ def setup_database():
     cursor.execute('PRAGMA auto_vacuum = INCREMENTAL;')
     
     cursor.execute('''CREATE TABLE IF NOT EXISTS metrics (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, entity_name TEXT, entity_type TEXT, status TEXT, cpu_usage REAL, mem_used REAL, mem_total REAL, disk_used REAL, disk_total REAL, net_in REAL, net_out REAL, ping_ms REAL)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS latest_metrics (entity_name TEXT, entity_type TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT, cpu_usage REAL, mem_used REAL, mem_total REAL, disk_used REAL, disk_total REAL, net_in REAL, net_out REAL, ping_ms REAL, PRIMARY KEY(entity_name, entity_type))''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS alert_state (entity_metric TEXT PRIMARY KEY, is_alerting INTEGER, first_alert_time REAL, last_alert_time REAL, count INTEGER)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS monitored_targets (name TEXT, entity_type TEXT, target_address TEXT, port INTEGER, uuid TEXT, is_enabled INTEGER DEFAULT 1, down_since REAL DEFAULT 0.0, PRIMARY KEY(name, entity_type))''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS event_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, entity_name TEXT, event_type TEXT, message TEXT)''')
     cursor.execute('''CREATE TABLE IF NOT EXISTS sys_settings (key TEXT PRIMARY KEY, value TEXT)''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS pihole_stats (id INTEGER PRIMARY KEY, status TEXT, domains_blocked INTEGER, queries_today INTEGER, ads_blocked INTEGER, ads_percentage REAL)''')
     
     cursor.execute('INSERT OR IGNORE INTO sys_settings (key, value) VALUES ("global_mute", "0")')
     cursor.execute('INSERT OR IGNORE INTO sys_settings (key, value) VALUES ("force_poll", "0")')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS pihole_stats (id INTEGER PRIMARY KEY, status TEXT, domains_blocked INTEGER, queries_today INTEGER, ads_blocked INTEGER, ads_percentage REAL)''')
 
     cursor.execute("PRAGMA table_info(monitored_targets)")
     columns = [c[1] for c in cursor.fetchall()]
     if 'cooldown_interval' not in columns: cursor.execute("ALTER TABLE monitored_targets ADD COLUMN cooldown_interval INTEGER DEFAULT 3600")
     if 'cpu_threshold' not in columns: cursor.execute("ALTER TABLE monitored_targets ADD COLUMN cpu_threshold REAL DEFAULT 90.0")
     if 'mem_threshold' not in columns: cursor.execute("ALTER TABLE monitored_targets ADD COLUMN mem_threshold REAL DEFAULT 90.0")
+    if 'location' not in columns: cursor.execute("ALTER TABLE monitored_targets ADD COLUMN location TEXT DEFAULT 'Local'")
+
+    # Bootstrap latest_metrics for legacy environments instantly
+    cursor.execute('''INSERT OR IGNORE INTO latest_metrics (entity_name, entity_type, timestamp, status, cpu_usage, mem_used, mem_total, disk_used, disk_total, net_in, net_out, ping_ms)
+                      SELECT entity_name, entity_type, timestamp, status, cpu_usage, mem_used, mem_total, disk_used, disk_total, net_in, net_out, ping_ms 
+                      FROM metrics WHERE id IN (SELECT MAX(id) FROM metrics GROUP BY entity_name, entity_type)''')
 
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_metrics_entity ON metrics(entity_name, entity_type)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON metrics(timestamp)')
-    cursor.execute('CREATE INDEX IF NOT EXISTS idx_events_timestamp ON event_logs(timestamp)')
     
     for row in cursor.execute('SELECT entity_metric, is_alerting, first_alert_time, last_alert_time, count FROM alert_state').fetchall():
         ALERT_STATE[row[0]] = {'is_alerting': bool(row[1]), 'first_alert_time': row[2], 'last_alert_time': row[3], 'count': row[4]}
@@ -194,9 +203,6 @@ def process_alert(entity, metric, condition_met, trigger_count, msg_trigger, msg
             
     if state_changed: sync_alert_db(key, state)
 
-# ==========================================
-# WORKER FUNCTIONS WITH HYSTERESIS
-# ==========================================
 def collect_pihole_stats():
     if not PIHOLE_IP: return
     try:
@@ -225,11 +231,9 @@ def get_ptero_cpu_limit(uuid, headers):
             PTERO_LIMITS_CACHE[uuid] = max(res.json()['attributes']['limits']['cpu'], 100)
             return PTERO_LIMITS_CACHE[uuid]
     except Exception: pass
-    # Fallback to cache if API times out, to prevent 300% spikes
     return PTERO_LIMITS_CACHE.get(uuid, 100)
 
 def check_ping(name, ip):
-    # Hysteresis: Retry up to 3 times before declaring dead
     for attempt in range(3):
         try:
             out = subprocess.run(['ping', '-c', '1', '-W', '1', ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -241,7 +245,6 @@ def check_ping(name, ip):
     return ('network', name, 'stopped', 0.0, 0.0, 0.0, 0.0)
 
 def check_tcp(name, ip, port):
-    # Hysteresis: Retry up to 3 times
     for attempt in range(3):
         try:
             with socket.create_connection((ip, port), timeout=3): 
@@ -262,7 +265,6 @@ def check_ptero(name, uuid):
                 actual_cpu = (r['resources'].get('cpu_absolute', 0.0) / limit) * 100
                 mem_used = r['resources'].get('memory_bytes', 0.0) / (1024**3)
                 
-                # Cache total memory safely
                 mem_total = 0.0
                 try:
                     res_details = requests.get(f"{PTERO_URL}/api/client/servers/{uuid}", headers=headers, timeout=5)
@@ -275,14 +277,11 @@ def check_ptero(name, uuid):
             time.sleep(0.5)
     return ('game', name, 'stopped', 0.0, 0.0, 0.0, 0.0)
 
-# ==========================================
-# MAIN LOOP
-# ==========================================
 def collect_and_store():
     try:
         conn = sqlite3.connect(DB_NAME, timeout=15)
-        cfg = {(r[0], r[1]): {'ip': r[2], 'port': r[3], 'uuid': r[4], 'enabled': r[5], 'down_since': r[6], 'cooldown': r[7], 'cpu_thresh': r[8], 'mem_thresh': r[9]} 
-               for r in conn.execute("SELECT name, entity_type, target_address, port, uuid, is_enabled, down_since, cooldown_interval, cpu_threshold, mem_threshold FROM monitored_targets").fetchall()}
+        cfg = {(r[0], r[1]): {'ip': r[2], 'port': r[3], 'uuid': r[4], 'enabled': r[5], 'down_since': r[6], 'cooldown': r[7], 'cpu_thresh': r[8], 'mem_thresh': r[9], 'location': r[10]} 
+               for r in conn.execute("SELECT name, entity_type, target_address, port, uuid, is_enabled, down_since, cooldown_interval, cpu_threshold, mem_threshold, location FROM monitored_targets").fetchall()}
         mute_setting = conn.execute("SELECT value FROM sys_settings WHERE key='global_mute'").fetchone()
         global_mute = True if mute_setting and mute_setting[0] == '1' else False
         conn.close()
@@ -293,8 +292,6 @@ def collect_and_store():
     metrics_batch, downtime_updates, alerts, new_entities = [], [], [], []
     now = time.time()
     futures = []
-
-    # Dynamic pool limits to prevent thread exhaustion
     pool_size = min(40, len(cfg) + 5)
     
     with ThreadPoolExecutor(max_workers=pool_size) as executor:
@@ -306,13 +303,13 @@ def collect_and_store():
                 alerts.append((name, 'offline', False, 3, "", "", 0.0, e_type == 'game', data['cooldown'], True))
                 alerts.append((name, 'cpu', False, 3, "", "", 0.0, False, data['cooldown'], True))
                 alerts.append((name, 'ram', False, 3, "", "", 0.0, False, data['cooldown'], True))
+                alerts.append((name, 'disk', False, 3, "", "", 0.0, False, data['cooldown'], True))
                 continue
                 
             if e_type == 'network': futures.append(executor.submit(check_ping, name, data['ip']))
             elif e_type == 'app': futures.append(executor.submit(check_tcp, name, data['ip'], data['port']))
             elif e_type == 'game': futures.append(executor.submit(check_ptero, name, data['uuid']))
 
-        # Proxmox Logic with API Retries
         proxmox_success = False
         for attempt in range(2):
             try:
@@ -331,12 +328,28 @@ def collect_and_store():
                     alerts.append(('CORE-PVE', 'api_offline', False, 2, "", "", 0.0, False, cldwn, False))
                     alerts.append(('CORE-PVE', 'cpu', host_cpu > cpu_thresh, 3, f"Host CPU critical at {host_cpu:.1f}%", "Host CPU normalized.", 0.0, False, cldwn, False))
 
+                # Discovery & Polling of Proxmox Storage Arrays
+                for storage in proxmox.nodes(my_node).storage.get():
+                    name = f"DS-{storage.get('storage')}"
+                    if name in IGNORE_ENTITIES: continue
+                    if (name, 'storage') not in cfg:
+                        new_entities.append((name, 'storage', 1, 'Local'))
+                        cfg[(name, 'storage')] = {'enabled': 1, 'down_since': 0.0, 'cooldown': 3600, 'cpu_thresh': 90.0, 'mem_thresh': 90.0, 'location': 'Local'}
+                    if cfg[(name, 'storage')]['enabled'] == 0: continue
+                    
+                    if storage.get('active') == 1:
+                        disk_used = storage.get('used', 0) / 1073741824
+                        disk_total = storage.get('total', 1) / 1073741824
+                        metrics_batch.append((name, 'storage', 'running', 0.0, 0.0, 0.0, disk_used, disk_total, 0.0, 0.0, 0.0))
+                    else:
+                        metrics_batch.append((name, 'storage', 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+
                 for lxc in proxmox.nodes(my_node).lxc.get():
                     name = lxc.get('name')
                     if name in IGNORE_ENTITIES: continue
                     if (name, 'lxc') not in cfg:
-                        new_entities.append((name, 'lxc', 1))
-                        cfg[(name, 'lxc')] = {'enabled': 1, 'down_since': 0.0, 'cooldown': 3600, 'cpu_thresh': 90.0, 'mem_thresh': 90.0}
+                        new_entities.append((name, 'lxc', 1, 'Local'))
+                        cfg[(name, 'lxc')] = {'enabled': 1, 'down_since': 0.0, 'cooldown': 3600, 'cpu_thresh': 90.0, 'mem_thresh': 90.0, 'location': 'Local'}
                     if cfg[(name, 'lxc')]['enabled'] == 0: continue
                     
                     if lxc.get('status') == 'running':
@@ -349,8 +362,8 @@ def collect_and_store():
                     vmid = vm.get('vmid')
                     if name in IGNORE_ENTITIES: continue
                     if (name, 'vm') not in cfg:
-                        new_entities.append((name, 'vm', 1))
-                        cfg[(name, 'vm')] = {'enabled': 1, 'down_since': 0.0, 'cooldown': 3600, 'cpu_thresh': 90.0, 'mem_thresh': 90.0}
+                        new_entities.append((name, 'vm', 1, 'Local'))
+                        cfg[(name, 'vm')] = {'enabled': 1, 'down_since': 0.0, 'cooldown': 3600, 'cpu_thresh': 90.0, 'mem_thresh': 90.0, 'location': 'Local'}
                     if cfg[(name, 'vm')]['enabled'] == 0: continue
                     
                     if vm.get('status') == 'running':
@@ -377,7 +390,6 @@ def collect_and_store():
                 cldwn = cfg.get(('CORE-PVE', 'host'), {}).get('cooldown', 3600)
                 alerts.append(('CORE-PVE', 'api_offline', True, 2, "Proxmox API unreachable.", "Proxmox API online.", 0.0, False, cldwn, False))
 
-        # Fault Tolerant Thread Resolution (15s Absolute Max)
         for future in as_completed(futures, timeout=15):
             try:
                 res = future.result()
@@ -397,30 +409,40 @@ def collect_and_store():
         if status == 'stopped':
             down_since = now if db_down == 0.0 else db_down
             if db_down == 0.0: downtime_updates.append((now, name, e_type))
-            alerts.append((name, 'offline', True, 3, f"{name} is offline.", f"{name} is back online.", down_since, is_game, cldn, False))
             
-            # Silent Resolve clears CPU/RAM locks instantly without telegram spam
-            alerts.append((name, 'cpu', False, 3, "", "", 0.0, False, cldn, True))
-            alerts.append((name, 'ram', False, 3, "", "", 0.0, False, cldn, True))
+            if e_type == 'storage':
+                alerts.append((name, 'offline', True, 3, f"Storage {name} is inactive/unreachable.", f"Storage {name} is back online.", down_since, False, cldn, False))
+                alerts.append((name, 'disk', False, 3, "", "", 0.0, False, cldn, True))
+            else:
+                alerts.append((name, 'offline', True, 3, f"{name} is offline.", f"{name} is back online.", down_since, is_game, cldn, False))
+                alerts.append((name, 'cpu', False, 3, "", "", 0.0, False, cldn, True))
+                alerts.append((name, 'ram', False, 3, "", "", 0.0, False, cldn, True))
         else:
             if db_down != 0.0: downtime_updates.append((0.0, name, e_type))
             alerts.append((name, 'offline', False, 3, "", "", db_down, is_game, cldn, False))
             
-            cpu_usage, mem_used, mem_total = m[3], m[4], m[5]
-            if cpu_usage > 0:
-                alerts.append((name, 'cpu', cpu_usage > cpu_t, 3, f"CPU critical at {cpu_usage:.1f}%", "CPU normalized.", 0.0, False, cldn, False))
-            if mem_total > 0:
-                mem_pct = (mem_used / mem_total) * 100
-                alerts.append((name, 'ram', mem_pct > mem_t, 3, f"RAM critical at {mem_pct:.1f}%", "RAM normalized.", 0.0, False, cldn, False))
+            if e_type == 'storage':
+                disk_used, disk_total = m[6], m[7]
+                if disk_total > 0:
+                    disk_pct = (disk_used / disk_total) * 100
+                    alerts.append((name, 'disk', disk_pct > mem_t, 3, f"Storage {name} capacity critical at {disk_pct:.1f}%", f"Storage {name} capacity normalized.", 0.0, False, cldn, False))
+            else:
+                cpu_usage, mem_used, mem_total = m[3], m[4], m[5]
+                if cpu_usage > 0:
+                    alerts.append((name, 'cpu', cpu_usage > cpu_t, 3, f"CPU critical at {cpu_usage:.1f}%", "CPU normalized.", 0.0, False, cldn, False))
+                if mem_total > 0:
+                    mem_pct = (mem_used / mem_total) * 100
+                    alerts.append((name, 'ram', mem_pct > mem_t, 3, f"RAM critical at {mem_pct:.1f}%", "RAM normalized.", 0.0, False, cldn, False))
 
-    # Safe DB Writing
     try:
         w_conn = sqlite3.connect(DB_NAME, timeout=15)
-        for name, e_type, enabled in new_entities:
-            w_conn.execute('INSERT OR IGNORE INTO monitored_targets (name, entity_type, is_enabled, down_since, cooldown_interval, cpu_threshold, mem_threshold) VALUES (?, ?, ?, 0.0, 3600, 90.0, 90.0)', (name, e_type, enabled))
+        for name, e_type, enabled, loc in new_entities:
+            w_conn.execute('INSERT OR IGNORE INTO monitored_targets (name, entity_type, is_enabled, down_since, cooldown_interval, cpu_threshold, mem_threshold, location) VALUES (?, ?, ?, 0.0, 3600, 90.0, 90.0, ?)', (name, e_type, enabled, loc))
         for stamp, name, e_type in downtime_updates:
             w_conn.execute('UPDATE monitored_targets SET down_since = ? WHERE name = ? AND entity_type = ?', (stamp, name, e_type))
+            
         w_conn.executemany('INSERT INTO metrics (entity_name, entity_type, status, cpu_usage, mem_used, mem_total, disk_used, disk_total, net_in, net_out, ping_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', metrics_batch)
+        w_conn.executemany('INSERT OR REPLACE INTO latest_metrics (entity_name, entity_type, status, cpu_usage, mem_used, mem_total, disk_used, disk_total, net_in, net_out, ping_ms, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)', metrics_batch)
         w_conn.commit()
         w_conn.close()
     except Exception as e:
@@ -470,6 +492,8 @@ if __name__ == "__main__":
                 except Exception: pass
 
     except KeyboardInterrupt: pass
+
+    
 
     
 

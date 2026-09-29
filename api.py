@@ -18,7 +18,6 @@ DB_NAME = 'metrics.db'
 
 app = FastAPI(title="HackNet NOC API", version="2.0.0")
 
-# 1. CORS HARDENING: Strip the wildcard, allow only internal/local network origins.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -36,17 +35,18 @@ os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ==========================================
-# STRICT PYDANTIC SCHEMAS (Input Validation)
+# STRICT PYDANTIC SCHEMAS
 # ==========================================
 class TargetCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=50, description="Sensor Name")
-    entity_type: str = Field(..., pattern="^(network|app|game|host|vm|lxc)$")
+    entity_type: str = Field(..., pattern="^(network|app|game|host|vm|lxc|storage)$")
     target_address: Optional[str] = ""
     port: Optional[int] = 0
     uuid: Optional[str] = ""
     cooldown_interval: Optional[int] = 3600
     cpu_threshold: Optional[float] = 90.0
     mem_threshold: Optional[float] = 90.0
+    location: Optional[str] = "Local"
 
 class TargetUpdate(TargetCreate):
     old_name: str = Field(..., min_length=1)
@@ -60,12 +60,11 @@ class SysSettingsUpdate(BaseModel):
     global_mute: Optional[int] = Field(None, ge=0, le=1)
 
 # ==========================================
-# SECURITY LAYER (Cryptographic Auth)
+# SECURITY LAYER
 # ==========================================
 def verify_admin(x_api_key: str = Header(None)):
     if not x_api_key:
         raise HTTPException(status_code=401, detail="Missing Authorization Header.")
-    # 2. TIMING ATTACK PREVENTION: Constant-time string comparison
     if not secrets.compare_digest(x_api_key, ADMIN_SECRET):
         raise HTTPException(status_code=401, detail="Unauthorized Access.")
 
@@ -79,14 +78,14 @@ def live_data():
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
+        # High-performance join using the new latest_metrics state table
         cursor.execute('''
             SELECT t.name AS entity_name, t.entity_type, t.is_enabled, t.down_since, t.target_address, t.port, t.uuid, 
-                   t.cooldown_interval, t.cpu_threshold, t.mem_threshold,
-                   m.status, m.cpu_usage, m.mem_used, m.mem_total, m.ping_ms
+                   t.cooldown_interval, t.cpu_threshold, t.mem_threshold, t.location,
+                   m.status, m.cpu_usage, m.mem_used, m.mem_total, m.disk_used, m.disk_total, m.ping_ms
             FROM monitored_targets t
-            LEFT JOIN metrics m ON m.entity_name = t.name AND m.entity_type = t.entity_type
-            AND m.id = (SELECT MAX(id) FROM metrics WHERE entity_name = t.name AND entity_type = t.entity_type)
-            ORDER BY CASE t.entity_type WHEN 'network' THEN 1 WHEN 'host' THEN 2 WHEN 'lxc' THEN 3 WHEN 'vm' THEN 4 WHEN 'app' THEN 5 WHEN 'game' THEN 6 ELSE 7 END, LOWER(t.name) ASC
+            LEFT JOIN latest_metrics m ON m.entity_name = t.name AND m.entity_type = t.entity_type
+            ORDER BY CASE t.entity_type WHEN 'network' THEN 1 WHEN 'host' THEN 2 WHEN 'storage' THEN 3 WHEN 'lxc' THEN 4 WHEN 'vm' THEN 5 WHEN 'app' THEN 6 WHEN 'game' THEN 7 ELSE 8 END, LOWER(t.name) ASC
         ''')
         targets = [dict(r) for r in cursor.fetchall()]
 
@@ -99,16 +98,32 @@ def live_data():
             if r: pihole = dict(r)
         except Exception: pass
 
-        wan_history = []
+        # Fetch efficient historical sparkline data (last 10 mins)
+        sparklines = {}
         try:
             cursor.execute('''
-                SELECT status, ping_ms FROM metrics 
-                WHERE entity_name = 'WAN_DNS' AND entity_type = 'network' 
-                ORDER BY timestamp DESC LIMIT 60
+                SELECT entity_name, entity_type, ping_ms, cpu_usage 
+                FROM metrics 
+                WHERE timestamp >= datetime('now', '-10 minutes')
+                ORDER BY timestamp ASC
             ''')
             rows = cursor.fetchall()
-            for r in reversed(rows):
-                wan_history.append(r['ping_ms'] if r['status'] == 'running' else 0.0)
+            for r in rows:
+                key = f"{r['entity_name']}_{r['entity_type']}"
+                if key not in sparklines: sparklines[key] = {'ping': [], 'cpu': []}
+                sparklines[key]['ping'].append(r['ping_ms'] or 0)
+                sparklines[key]['cpu'].append(r['cpu_usage'] or 0)
+            
+            # Bound array size for UI efficiency
+            for k in sparklines:
+                sparklines[k]['ping'] = sparklines[k]['ping'][-60:]
+                sparklines[k]['cpu'] = sparklines[k]['cpu'][-60:]
+        except Exception: pass
+        
+        wan_history = []
+        try:
+            wan_key = "WAN_DNS_network"
+            if wan_key in sparklines: wan_history = sparklines[wan_key]['ping']
         except Exception: pass
 
         conn.close()
@@ -117,10 +132,11 @@ def live_data():
             "data": targets, 
             "settings": settings, 
             "pihole": pihole,
-            "wan_history": wan_history
+            "wan_history": wan_history,
+            "sparklines": sparklines
         }
     except Exception as e:
-        return JSONResponse(status_code=500, content={"status": "error", "message": "Database Read Failure"})
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
 
 # ==========================================
 # SECURE ADMIN ENDPOINTS
@@ -129,10 +145,8 @@ def live_data():
 def get_audit_logs():
     conn = sqlite3.connect(DB_NAME, timeout=15)
     conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
     try:
-        cursor.execute('SELECT timestamp, entity_name, event_type, message FROM event_logs ORDER BY timestamp DESC LIMIT 50')
-        logs = [dict(r) for r in cursor.fetchall()]
+        logs = [dict(r) for r in conn.execute('SELECT timestamp, entity_name, event_type, message FROM event_logs ORDER BY timestamp DESC LIMIT 50').fetchall()]
     except Exception:
         logs = []
     finally:
@@ -143,10 +157,10 @@ def get_audit_logs():
 async def add_admin_target(payload: TargetCreate):
     conn = sqlite3.connect(DB_NAME, timeout=15)
     conn.execute('''INSERT OR REPLACE INTO monitored_targets 
-                    (name, entity_type, target_address, port, uuid, is_enabled, down_since, cooldown_interval, cpu_threshold, mem_threshold) 
-                    VALUES (?, ?, ?, ?, ?, 1, 0.0, ?, ?, ?)''', 
+                    (name, entity_type, target_address, port, uuid, is_enabled, down_since, cooldown_interval, cpu_threshold, mem_threshold, location) 
+                    VALUES (?, ?, ?, ?, ?, 1, 0.0, ?, ?, ?, ?)''', 
                  (payload.name, payload.entity_type, payload.target_address, payload.port, payload.uuid, 
-                  payload.cooldown_interval, payload.cpu_threshold, payload.mem_threshold))
+                  payload.cooldown_interval, payload.cpu_threshold, payload.mem_threshold, payload.location))
     conn.commit()
     conn.close()
     return {"status": "success"}
@@ -155,16 +169,17 @@ async def add_admin_target(payload: TargetCreate):
 async def edit_admin_target(payload: TargetUpdate):
     conn = sqlite3.connect(DB_NAME, timeout=15)
     
-    # Update core config
     conn.execute('''UPDATE monitored_targets 
-                    SET name=?, entity_type=?, target_address=?, port=?, uuid=?, cooldown_interval=?, cpu_threshold=?, mem_threshold=? 
+                    SET name=?, entity_type=?, target_address=?, port=?, uuid=?, cooldown_interval=?, cpu_threshold=?, mem_threshold=?, location=? 
                     WHERE name=? AND entity_type=?''', 
                  (payload.name, payload.entity_type, payload.target_address, payload.port, payload.uuid, 
-                  payload.cooldown_interval, payload.cpu_threshold, payload.mem_threshold, 
+                  payload.cooldown_interval, payload.cpu_threshold, payload.mem_threshold, payload.location, 
                   payload.old_name, payload.old_type))
     
-    # Safe cascade updates for historical data
+    # Safe cascade updates
     conn.execute('UPDATE metrics SET entity_name=?, entity_type=? WHERE entity_name=? AND entity_type=?', 
+                 (payload.name, payload.entity_type, payload.old_name, payload.old_type))
+    conn.execute('UPDATE latest_metrics SET entity_name=?, entity_type=? WHERE entity_name=? AND entity_type=?', 
                  (payload.name, payload.entity_type, payload.old_name, payload.old_type))
     try:
         conn.execute('UPDATE event_logs SET entity_name=? WHERE entity_name=?', (payload.name, payload.old_name))
@@ -179,6 +194,7 @@ async def delete_admin_target(payload: TargetAction):
     conn = sqlite3.connect(DB_NAME, timeout=15)
     conn.execute('DELETE FROM monitored_targets WHERE name = ? AND entity_type = ?', (payload.name, payload.entity_type))
     conn.execute('DELETE FROM metrics WHERE entity_name = ? AND entity_type = ?', (payload.name, payload.entity_type))
+    conn.execute('DELETE FROM latest_metrics WHERE entity_name = ? AND entity_type = ?', (payload.name, payload.entity_type))
     conn.commit()
     conn.close()
     return {"status": "success"}
@@ -213,9 +229,6 @@ async def update_sys_settings(payload: SysSettingsUpdate):
     conn.close()
     return {"status": "success"}
 
-# ==========================================
-# WEB UI ROUTES
-# ==========================================
 @app.get("/")
 def serve_dashboard(): 
     return FileResponse("static/index.html")
@@ -223,6 +236,8 @@ def serve_dashboard():
 @app.get("/admin")
 def serve_admin(): 
     return FileResponse("static/admin.html")
+
+    
 
     
 

@@ -89,26 +89,31 @@
                     </div>
 
                     <form @submit.prevent="saveTarget()" class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                        <div class="md:col-span-4">
+                        <div class="md:col-span-3">
                             <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Sensor Name</label>
                             <input x-model="form.name" type="text" placeholder="e.g. Ark_Server" class="dark-input w-full rounded p-2.5 font-mono text-sm" required>
                         </div>
-                        <div class="md:col-span-3">
+                        <div class="md:col-span-2">
                             <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Type</label>
                             <select x-model="form.entity_type" class="dark-input w-full rounded p-2.5 font-mono text-sm" required>
                                 <option value="" disabled>Select...</option>
                                 <option value="network">Network (Ping)</option>
                                 <option value="app">App (TCP Port)</option>
                                 <option value="game">Game (Pterodactyl)</option>
+                                <option value="storage">Proxmox Storage</option>
                             </select>
                         </div>
                         <div class="md:col-span-3">
-                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">IP Address</label>
+                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">IP / Target</label>
                             <input x-model="form.target_address" type="text" placeholder="10.10.x.x" class="dark-input w-full rounded p-2.5 font-mono text-sm">
                         </div>
                         <div class="md:col-span-2">
                             <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Port</label>
                             <input x-model="form.port" type="number" placeholder="80" class="dark-input w-full rounded p-2.5 font-mono text-sm">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Location / Tag</label>
+                            <input x-model="form.location" type="text" placeholder="e.g. US-East" class="dark-input w-full rounded p-2.5 font-mono text-sm">
                         </div>
 
                         <div class="md:col-span-4">
@@ -128,8 +133,8 @@
                             <input x-model="form.cpu_threshold" type="number" step="0.1" placeholder="90.0" class="dark-input w-full rounded p-2.5 font-mono text-sm text-neon-green">
                         </div>
                         
-                        <div x-show="['host', 'vm', 'lxc', 'game'].includes(form.entity_type)" class="md:col-span-2">
-                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">RAM Alert %</label>
+                        <div x-show="['host', 'vm', 'lxc', 'game', 'storage'].includes(form.entity_type)" class="md:col-span-2">
+                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1" x-text="form.entity_type === 'storage' ? 'Disk Alert %' : 'RAM Alert %'"></label>
                             <input x-model="form.mem_threshold" type="number" step="0.1" placeholder="90.0" class="dark-input w-full rounded p-2.5 font-mono text-sm text-neon-purple">
                         </div>
 
@@ -151,7 +156,7 @@
                     
                     <!-- Filters & Search -->
                     <div class="bg-black/80 p-4 border-b border-zinc-800 flex flex-col md:flex-row justify-between items-center gap-4">
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 flex-wrap">
                             <template x-for="tab in tabs" :key="tab.id">
                                 <button @click="activeTab = tab.id" 
                                         class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-widest transition-colors border"
@@ -191,13 +196,14 @@
                                         <td class="px-5 py-3 whitespace-nowrap font-black text-white uppercase tracking-wider text-sm" x-text="t.entity_name"></td>
                                         <td class="px-5 py-3 whitespace-nowrap">
                                             <span class="text-[9px] font-mono font-bold bg-black border border-zinc-800 text-zinc-400 px-2 py-1 rounded uppercase tracking-widest" x-text="t.entity_type"></span>
+                                            <span class="text-[9px] font-mono font-bold bg-black border border-zinc-800 text-zinc-500 px-2 py-1 rounded uppercase tracking-widest ml-1" x-text="t.location || 'Local'"></span>
                                         </td>
                                         <td class="px-5 py-3 whitespace-nowrap font-mono text-xs text-zinc-400 flex flex-col gap-1">
                                             <span class="truncate max-w-[200px]" title="Address" x-text="t.target_address || t.uuid || 'N/A'"></span>
                                             <div class="flex gap-2 text-[9px] font-bold uppercase tracking-widest">
                                                 <span class="text-cyan-500" x-text="'PRIORITY: ' + getCooldownText(t.cooldown_interval)"></span>
-                                                <span x-show="t.cpu_threshold" class="text-amber-500" x-text="'CPU: ' + t.cpu_threshold + '%'"></span>
-                                                <span x-show="t.mem_threshold" class="text-neon-purple" x-text="'RAM: ' + t.mem_threshold + '%'"></span>
+                                                <span x-show="t.cpu_threshold && t.entity_type !== 'storage'" class="text-amber-500" x-text="'CPU: ' + t.cpu_threshold + '%'"></span>
+                                                <span x-show="t.mem_threshold" class="text-neon-purple" x-text="t.entity_type === 'storage' ? 'DISK: ' + t.mem_threshold + '%' : 'RAM: ' + t.mem_threshold + '%'"></span>
                                             </div>
                                         </td>
                                         <td class="px-5 py-3 whitespace-nowrap text-right font-mono text-[10px] uppercase tracking-widest font-bold">
@@ -288,27 +294,27 @@
                 tabs: [
                     { id: 'all', label: 'All Sensors' },
                     { id: 'proxmox', label: 'Proxmox' },
+                    { id: 'storage', label: 'Storage' },
                     { id: 'game', label: 'Games' },
                     { id: 'app', label: 'Apps' },
                     { id: 'network', label: 'Network' }
                 ],
 
-                form: { old_name: '', old_type: '', name: '', entity_type: '', target_address: '', port: '', uuid: '', cooldown_interval: 3600, cpu_threshold: 90.0, mem_threshold: 90.0 },
+                form: { old_name: '', old_type: '', name: '', entity_type: '', target_address: '', port: '', uuid: '', cooldown_interval: 3600, cpu_threshold: 90.0, mem_threshold: 90.0, location: 'Local' },
 
                 get filteredTargets() {
                     return this.targets.filter(t => {
-                        // Tab Filter
                         let matchesTab = false;
                         if (this.activeTab === 'all') matchesTab = true;
                         else if (this.activeTab === 'proxmox') matchesTab = ['host', 'vm', 'lxc'].includes(t.entity_type);
                         else matchesTab = t.entity_type === this.activeTab;
                         
-                        // Search Filter
                         let matchesSearch = true;
                         if (this.searchQuery) {
                             const q = this.searchQuery.toLowerCase();
                             matchesSearch = t.entity_name.toLowerCase().includes(q) || 
                                             (t.target_address || '').toLowerCase().includes(q) ||
+                                            (t.location || '').toLowerCase().includes(q) ||
                                             t.entity_type.toLowerCase().includes(q);
                         }
                         return matchesTab && matchesSearch;
@@ -405,13 +411,14 @@
                         target_address: t.target_address || '', port: t.port || '', uuid: t.uuid || '', 
                         cooldown_interval: t.cooldown_interval || 3600,
                         cpu_threshold: t.cpu_threshold || 90.0,
-                        mem_threshold: t.mem_threshold || 90.0
+                        mem_threshold: t.mem_threshold || 90.0,
+                        location: t.location || 'Local'
                     };
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 },
                 cancelEdit() {
                     this.isEditing = false;
-                    this.form = { old_name: '', old_type: '', name: '', entity_type: '', target_address: '', port: '', uuid: '', cooldown_interval: 3600, cpu_threshold: 90.0, mem_threshold: 90.0 };
+                    this.form = { old_name: '', old_type: '', name: '', entity_type: '', target_address: '', port: '', uuid: '', cooldown_interval: 3600, cpu_threshold: 90.0, mem_threshold: 90.0, location: 'Local' };
                 },
                 async saveTarget() {
                     if (!this.form.port) this.form.port = 0;
@@ -433,10 +440,4 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
 

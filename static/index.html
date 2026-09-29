@@ -17,7 +17,6 @@
             font-family: 'Inter', sans-serif; 
             background-color: #000000; 
             margin: 0; padding: 0;
-            /* Overflow handled dynamically via JS now */
         }
         
         .font-mono { font-family: 'JetBrains Mono', monospace; }
@@ -60,7 +59,7 @@
             <div>
                 <h1 class="text-4xl md:text-5xl font-black text-white tracking-tighter drop-shadow-lg flex items-center gap-4">
                     HACKNET <span class="text-neon-green">NOC</span>
-                    <span class="text-xs md:text-sm font-mono text-zinc-500 font-bold tracking-widest border border-zinc-700 bg-black px-3 py-1 rounded shadow-inner hidden sm:inline-block">V_2.6</span>
+                    <span class="text-xs md:text-sm font-mono text-zinc-500 font-bold tracking-widest border border-zinc-700 bg-black px-3 py-1 rounded shadow-inner hidden sm:inline-block">V_2.7.ENT</span>
                 </h1>
                 <div class="flex items-center gap-2 md:gap-4 mt-2 md:mt-3 text-xs md:text-sm font-mono text-zinc-400 font-bold uppercase tracking-widest">
                     <span class="flex items-center gap-2">
@@ -72,16 +71,15 @@
                     <span class="text-white" x-text="'TIME: ' + sysTime"></span>
                 </div>
             </div>
-            <a href="/admin" class="px-5 py-2.5 bg-black border border-zinc-800 hover:border-neon-green text-zinc-400 hover:text-neon-green rounded text-xs font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-2">
+            <a href="/admin" class="px-5 py-2.5 bg-black border border-zinc-800 hover:border-neon-green text-zinc-400 hover:text-neon-green rounded text-xs font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-2 z-20">
                 <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 Admin Console
             </a>
         </header>
 
-        <!-- GLOBAL HEALTH RIBBON (Hero Row) -->
+        <!-- GLOBAL HEALTH RIBBON -->
         <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 mb-6 shrink-0 xl:h-[140px]">
             
-            <!-- WAN SPARKLINE -->
             <div class="xl:col-span-3 glass-panel rounded-xl p-5 flex flex-col relative overflow-hidden min-h-[120px]" :class="wanStatus === 'stopped' ? 'status-pulse-red bg-red-950/40' : ''">
                 <div class="flex justify-between items-start z-10">
                     <div>
@@ -94,7 +92,6 @@
                 </div>
             </div>
 
-            <!-- PROXMOX HOST -->
             <div class="xl:col-span-6 glass-panel rounded-xl p-5 flex flex-row justify-between items-center relative overflow-hidden min-h-[120px]" :class="hostStatus === 'stopped' ? 'status-pulse-red' : 'border-t border-t-zinc-700'">
                 <div class="flex flex-col justify-between h-full">
                     <div>
@@ -124,7 +121,6 @@
                 </div>
             </div>
 
-            <!-- PI-HOLE STATS -->
             <div class="xl:col-span-3 glass-panel rounded-xl p-5 flex justify-between items-center relative overflow-hidden min-h-[120px]" :class="piholeActive ? '' : 'border-amber-500/50 bg-amber-950/30'">
                 <div class="flex flex-col justify-between h-full z-10">
                     <div>
@@ -152,27 +148,30 @@
                     
                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
                         <template x-for="t in getFiltered(category.filter)" :key="t.entity_name">
-                            <div class="glass-panel rounded-xl p-4 flex flex-col justify-between transition-all min-h-[150px]"
+                            <div class="glass-panel rounded-xl p-4 flex flex-col justify-between transition-all min-h-[150px] relative overflow-hidden"
                                  :class="{
                                     'status-paused': t.is_enabled === 0,
                                     'status-pulse-red bg-red-950/40': t.status === 'stopped' && t.is_enabled === 1
                                  }">
                                 
-                                <div class="flex justify-between items-start mb-1">
-                                    <div class="truncate pr-2 w-full">
+                                <div class="flex justify-between items-start mb-1 z-10">
+                                    <div class="truncate w-full">
                                         <h4 class="font-black text-white text-base uppercase tracking-wider truncate drop-shadow" x-text="t.entity_name"></h4>
-                                        <div class="text-[9px] font-mono font-black tracking-widest uppercase mt-0.5 px-1.5 py-0.5 rounded inline-block border"
-                                             :class="t.status === 'running' ? 'bg-[#39ff14]/10 text-neon-green border-neon-green/30' : 'bg-red-900/30 text-red-400 border-red-500/30'"
-                                             x-text="t.is_enabled === 0 ? 'PAUSED' : (t.status === 'stopped' ? 'OFFLINE' : 'ONLINE')"></div>
+                                        <div class="flex items-center gap-1.5 mt-0.5">
+                                            <div class="text-[9px] font-mono font-black tracking-widest uppercase px-1.5 py-0.5 rounded inline-block border"
+                                                 :class="t.status === 'running' ? 'bg-[#39ff14]/10 text-neon-green border-neon-green/30' : 'bg-red-900/30 text-red-400 border-red-500/30'"
+                                                 x-text="t.is_enabled === 0 ? 'PAUSED' : (t.status === 'stopped' ? 'OFFLINE' : 'ONLINE')"></div>
+                                            <div class="text-[8px] font-mono font-bold text-zinc-400 uppercase tracking-widest px-1.5 py-0.5 rounded bg-black/50 border border-zinc-700/50" x-text="t.location || 'LOCAL'"></div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div x-show="t.status === 'stopped' && t.is_enabled === 1" class="flex-1 flex flex-col justify-center items-center bg-red-950/50 rounded-lg border border-red-500/30 mt-2 p-2">
+                                <div x-show="t.status === 'stopped' && t.is_enabled === 1" class="flex-1 flex flex-col justify-center items-center bg-red-950/50 rounded-lg border border-red-500/30 mt-2 p-2 z-10">
                                     <div class="text-red-500 text-[10px] font-black uppercase tracking-widest mb-1">Failure</div>
                                     <div class="text-red-300 font-mono text-sm font-bold" x-text="formatTime(t.down_since)"></div>
                                 </div>
 
-                                <div x-show="t.status === 'running' && t.is_enabled === 1" class="flex justify-around items-end flex-1 pb-1 pt-2">
+                                <div x-show="t.status === 'running' && t.is_enabled === 1" class="flex justify-around items-end flex-1 pb-1 pt-2 z-10">
                                     
                                     <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
                                         <div class="flex flex-col items-center">
@@ -192,6 +191,20 @@
                                         </div>
                                     </template>
 
+                                    <template x-if="t.entity_type === 'storage'">
+                                        <div class="w-full flex flex-col justify-end h-full px-1">
+                                            <div class="flex justify-between items-end text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">
+                                                <span>Usage</span>
+                                                <span class="text-lg font-mono leading-none" :style="`color: ${getRamColor((t.disk_used / Math.max(t.disk_total, 1)) * 100, t.mem_threshold)}`" x-text="((t.disk_used / Math.max(t.disk_total, 1)) * 100).toFixed(1) + '%'"></span>
+                                            </div>
+                                            <div class="w-full bg-black/60 rounded-full h-2.5 overflow-hidden border border-zinc-800 shadow-inner">
+                                                <div class="h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(255,255,255,0.2)]" 
+                                                     :style="`width: ${(t.disk_used / Math.max(t.disk_total, 1)) * 100}%; background: ${getRamColor((t.disk_used / Math.max(t.disk_total, 1)) * 100, t.mem_threshold)}`"></div>
+                                            </div>
+                                            <div class="text-[9px] text-right font-mono font-bold text-zinc-400 mt-1.5" x-text="formatStorage(t.disk_used) + ' / ' + formatStorage(t.disk_total)"></div>
+                                        </div>
+                                    </template>
+
                                     <template x-if="t.entity_type === 'network'">
                                         <div class="w-full bg-black/60 rounded py-2 border border-zinc-800/50 flex flex-col items-center justify-center h-full shadow-inner">
                                             <span class="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1">Latency</span>
@@ -206,6 +219,13 @@
                                         </div>
                                     </template>
                                 </div>
+                                
+                                <!-- Background Sparkline (10m History) -->
+                                <div x-show="t.status === 'running' && t.is_enabled === 1 && getSparklinePoints(t)" class="absolute bottom-0 left-0 w-full h-12 opacity-30 pointer-events-none z-0">
+                                    <svg class="w-full h-full" viewBox="0 0 100 30" preserveAspectRatio="none">
+                                        <polyline fill="none" :stroke="t.entity_type === 'network' ? '#39ff14' : '#b026ff'" stroke-width="1.5" :points="getSparklinePoints(t)"></polyline>
+                                    </svg>
+                                </div>
                             </div>
                         </template>
                     </div>
@@ -215,11 +235,10 @@
     </div>
 
     <script>
-        // SMART SCALER: Locks to 1080p on TVs/Desktops. Restores native scrolling on Mobile/Tablets.
         function initScaler() {
             const wrapper = document.getElementById('noc-wrapper');
             const scaleApp = () => {
-                if (window.innerWidth >= 1280) { // TV / Desktop
+                if (window.innerWidth >= 1280) { 
                     document.body.style.overflow = 'hidden';
                     wrapper.style.position = 'absolute';
                     wrapper.style.width = '1920px';
@@ -228,7 +247,7 @@
                     wrapper.style.transform = `scale(${scale})`;
                     wrapper.style.left = `${(window.innerWidth - (1920 * scale)) / 2}px`;
                     wrapper.style.top = `${(window.innerHeight - (1080 * scale)) / 2}px`;
-                } else { // Mobile / Tablet
+                } else { 
                     document.body.style.overflow = 'auto';
                     wrapper.style.position = 'relative';
                     wrapper.style.width = '100%';
@@ -246,6 +265,7 @@
         function nocApp() {
             return {
                 targets: [],
+                sparklines: {},
                 pihole: {},
                 piholeActive: false,
                 sysTime: '--:--:--',
@@ -260,11 +280,11 @@
                 hostCpuThresh: 90.0,
                 hostMemThresh: 90.0,
 
-                wanHistory: Array(60).fill(0),
                 chartObj: null,
 
                 categories: [
                     { id: 'proxmox', title: 'Virtualization & Hypervisor', filter: ['vm', 'lxc'] },
+                    { id: 'storage', title: 'Data Stores & NAS', filter: ['storage'] },
                     { id: 'games', title: 'Pterodactyl Game Engines', filter: ['game'] },
                     { id: 'services', title: 'Core Applications & Network', filter: ['network', 'app'] }
                 ],
@@ -304,6 +324,7 @@
                         const json = await res.json();
                         if (json.status === 'success') {
                             this.targets = json.data;
+                            this.sparklines = json.sparklines || {};
                             this.pihole = json.pihole || {};
                             
                             const ps = (this.pihole.status || '').toLowerCase();
@@ -341,6 +362,27 @@
                     return this.targets.filter(t => types.includes(t.entity_type) && !['WAN_DNS', 'CORE-PVE'].includes(t.entity_name));
                 },
 
+                getSparklinePoints(t) {
+                    const key = t.entity_name + '_' + t.entity_type;
+                    const dataObj = this.sparklines[key];
+                    if (!dataObj) return '';
+                    const data = t.entity_type === 'network' ? dataObj.ping : dataObj.cpu;
+                    if (!data || data.length === 0) return '';
+                    
+                    const max = Math.max(...data, 10);
+                    return data.map((val, i) => {
+                        const x = (i / Math.max(data.length - 1, 1)) * 100;
+                        const y = 30 - ((val / max) * 28);
+                        return `${x.toFixed(1)},${y.toFixed(1)}`;
+                    }).join(' ');
+                },
+
+                formatStorage(gb) {
+                    if (!gb) return '0G';
+                    if (gb >= 1000) return (gb / 1024).toFixed(2) + 'T';
+                    return gb.toFixed(1) + 'G';
+                },
+
                 getCpuColor(val, threshold = 90.0) {
                     if (val >= threshold) return '#ef4444'; 
                     if (val >= (threshold * 0.8)) return '#f59e0b'; 
@@ -371,27 +413,4 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
