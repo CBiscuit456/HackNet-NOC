@@ -27,8 +27,6 @@ TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 PIHOLE_IP = os.getenv('PIHOLE_IP')
 PIHOLE_APP_PASSWORD = os.getenv('PIHOLE_APP_PASSWORD')
 
-IGNORE_ENTITIES = [x.strip() for x in os.getenv('IGNORE_ENTITIES', '').split(',') if x.strip()]
-
 POLL_INTERVAL = 10
 DB_NAME = os.getenv('DB_NAME', 'metrics.db')
 
@@ -220,8 +218,6 @@ def collect_pihole_stats():
         if res.status_code == 200:
             d = res.json()
             state = d.get('state', 'unknown')
-            
-            # Smart Fallback for both Pi-Hole v5 and v6 APIs
             domains = d.get('gravity', {}).get('domains_being_blocked', d.get('domains_being_blocked', 0))
             queries = d.get('queries', {}).get('total', d.get('dns_queries_today', 0))
             blocked = d.get('queries', {}).get('blocked', d.get('ads_blocked_today', 0))
@@ -307,6 +303,8 @@ def collect_and_store():
     futures = []
     pool_size = min(40, len(cfg) + 5)
     
+    seen_pve_entities = set()
+    
     with ThreadPoolExecutor(max_workers=pool_size) as executor:
         executor.submit(collect_pihole_stats)
         
@@ -329,6 +327,7 @@ def collect_and_store():
                 try:
                     proxmox = ProxmoxAPI(PROXMOX_IP, user=TOKEN_ID.split('!')[0], token_name=TOKEN_ID.split('!')[1], token_value=TOKEN_SECRET, verify_ssl=False, timeout=6)
                     my_node = proxmox.nodes.get()[0]['node']
+                    seen_pve_entities.add((my_node, 'host'))
                     
                     if (my_node, 'host') not in cfg:
                         new_entities.append((my_node, 'host', 1, 'Local'))
@@ -344,15 +343,12 @@ def collect_and_store():
                         host_du = rootfs.get('used', 0) / (1024**3)
                         host_dt = rootfs.get('total', 1) / (1024**3)
                         
-                        # Correct Rx/Tx Polling via Proxmox RRD (Round Robin Database)
                         rx_mbps, tx_mbps = 0.0, 0.0
                         try:
                             rrd_data = proxmox.nodes(my_node).rrddata.get(timeframe='hour')
                             if rrd_data:
-                                # Reverse iterate to find the most recent valid network metric
                                 for point in reversed(rrd_data):
                                     if point.get('netin') is not None and point.get('netout') is not None:
-                                        # Proxmox returns bytes per second. Convert to Megabits per second.
                                         rx_mbps = (point['netin'] * 8) / 1_000_000
                                         tx_mbps = (point['netout'] * 8) / 1_000_000
                                         break
@@ -369,6 +365,7 @@ def collect_and_store():
 
                     for storage in proxmox.nodes(my_node).storage.get():
                         name = f"DS-{storage.get('storage')}"
+                        seen_pve_entities.add((name, 'storage'))
                         if (name, 'storage') not in cfg:
                             new_entities.append((name, 'storage', 1, 'Local'))
                             cfg[(name, 'storage')] = {'enabled': 1, 'down_since': 0.0, 'cooldown': 3600, 'cpu_thresh': 90.0, 'mem_thresh': 90.0, 'location': 'Local'}
@@ -383,6 +380,7 @@ def collect_and_store():
 
                     for lxc in proxmox.nodes(my_node).lxc.get():
                         name = lxc.get('name')
+                        seen_pve_entities.add((name, 'lxc'))
                         if (name, 'lxc') not in cfg:
                             new_entities.append((name, 'lxc', 1, 'Local'))
                             cfg[(name, 'lxc')] = {'enabled': 1, 'down_since': 0.0, 'cooldown': 3600, 'cpu_thresh': 90.0, 'mem_thresh': 90.0, 'location': 'Local'}
@@ -396,6 +394,7 @@ def collect_and_store():
                     for vm in proxmox.nodes(my_node).qemu.get():
                         name = vm.get('name')
                         vmid = vm.get('vmid')
+                        seen_pve_entities.add((name, 'vm'))
                         if (name, 'vm') not in cfg:
                             new_entities.append((name, 'vm', 1, 'Local'))
                             cfg[(name, 'vm')] = {'enabled': 1, 'down_since': 0.0, 'cooldown': 3600, 'cpu_thresh': 90.0, 'mem_thresh': 90.0, 'location': 'Local'}
@@ -419,11 +418,17 @@ def collect_and_store():
                 except Exception:
                     time.sleep(1)
             
-            if not proxmox_success:
+            if proxmox_success:
                 for (n, t), data in cfg.items():
-                    if t == 'host' and data['enabled'] != 0:
-                        metrics_batch.append((n, 'host', 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
-                        alerts.append((n, 'api_offline', True, 2, "Proxmox API unreachable.", "Proxmox API online.", 0.0, False, data['cooldown'], False))
+                    if t in ['host', 'vm', 'lxc', 'storage'] and data['enabled'] != 0:
+                        if (n, t) not in seen_pve_entities:
+                            metrics_batch.append((n, t, 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+            else:
+                for (n, t), data in cfg.items():
+                    if t in ['host', 'vm', 'lxc', 'storage'] and data['enabled'] != 0:
+                        metrics_batch.append((n, t, 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+                        if t == 'host':
+                            alerts.append((n, 'api_offline', True, 2, "Proxmox API unreachable.", "Proxmox API online.", 0.0, False, data['cooldown'], False))
 
         for future in as_completed(futures, timeout=15):
             try:
@@ -531,6 +536,8 @@ if __name__ == "__main__":
                 except Exception: pass
 
     except KeyboardInterrupt: pass
+
+    
 
     
 
