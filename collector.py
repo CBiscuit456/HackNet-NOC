@@ -27,9 +27,10 @@ TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 PIHOLE_IP = os.getenv('PIHOLE_IP')
 PIHOLE_APP_PASSWORD = os.getenv('PIHOLE_APP_PASSWORD')
 
+IGNORE_ENTITIES = [x.strip() for x in os.getenv('IGNORE_ENTITIES', '').split(',') if x.strip()]
+
 POLL_INTERVAL = 10
-DB_NAME = 'metrics.db'
-IGNORE_ENTITIES = ['expanse-svr']
+DB_NAME = os.getenv('DB_NAME', 'metrics.db')
 
 ALERT_STATE = {}
 PTERO_LIMITS_CACHE = {}
@@ -68,7 +69,7 @@ def generate_full_report(title="📊 <b>NOC Status Report</b>"):
     try:
         conn = sqlite3.connect(DB_NAME, timeout=15)
         conn.row_factory = sqlite3.Row
-        rows = conn.execute("SELECT m.entity_name, m.entity_type, m.status, m.ping_ms, m.cpu_usage, m.mem_used, t.is_enabled FROM latest_metrics m LEFT JOIN monitored_targets t ON m.entity_name = t.name AND m.entity_type = t.entity_type").fetchall()
+        rows = conn.execute("SELECT m.entity_name, m.entity_type, m.status, m.ping_ms, m.cpu_usage, m.mem_used, m.mem_total, t.is_enabled FROM latest_metrics m LEFT JOIN monitored_targets t ON m.entity_name = t.name AND m.entity_type = t.entity_type").fetchall()
         conn.close()
     except Exception:
         return
@@ -86,9 +87,11 @@ def generate_full_report(title="📊 <b>NOC Status Report</b>"):
         is_up = (r['status'] == 'running')
         if t == 'network':
             if not is_up: net_down.append(n)
-            if n == 'WAN_DNS' and is_up: net_wan = f"{r['ping_ms']:.0f}ms"
+            if 'WAN' in n.upper() and is_up: net_wan = f"{r['ping_ms']:.0f}ms"
         elif t == 'host':
-            if is_up: host_str = f"{r['cpu_usage']:.1f}% CPU | {r['mem_used']:.1f}GB RAM"
+            if is_up:
+                mem_pct = (r['mem_used'] / max(r['mem_total'] or 1.0, 1.0)) * 100
+                host_str = f"{n} - {r['cpu_usage']:.1f}% CPU | {mem_pct:.1f}% RAM ({r['mem_used']:.1f}GB)"
         elif t == 'storage':
             storage_tot += 1
             if not is_up: storage_down.append(n)
@@ -137,7 +140,6 @@ def setup_database():
     if 'mem_threshold' not in columns: cursor.execute("ALTER TABLE monitored_targets ADD COLUMN mem_threshold REAL DEFAULT 90.0")
     if 'location' not in columns: cursor.execute("ALTER TABLE monitored_targets ADD COLUMN location TEXT DEFAULT 'Local'")
 
-    # Bootstrap latest_metrics for legacy environments instantly
     cursor.execute('''INSERT OR IGNORE INTO latest_metrics (entity_name, entity_type, timestamp, status, cpu_usage, mem_used, mem_total, disk_used, disk_total, net_in, net_out, ping_ms)
                       SELECT entity_name, entity_type, timestamp, status, cpu_usage, mem_used, mem_total, disk_used, disk_total, net_in, net_out, ping_ms 
                       FROM metrics WHERE id IN (SELECT MAX(id) FROM metrics GROUP BY entity_name, entity_type)''')
@@ -181,18 +183,24 @@ def process_alert(entity, metric, condition_met, trigger_count, msg_trigger, msg
                 state['last_alert_time'] = now
                 state_changed = True
             else:
-                time_down = now - state['first_alert_time']
-                cooldown = GAME_ESCALATION_COOLDOWN if (is_game and time_down >= GAME_ESCALATION_TIME) else cooldown_interval
+                time_active = now - state['first_alert_time']
+                cooldown = GAME_ESCALATION_COOLDOWN if (is_game and time_active >= GAME_ESCALATION_TIME) else cooldown_interval
                 if (now - state['last_alert_time']) > cooldown:
-                    if not global_mute: send_telegram(f"🚨 <b>REMINDER: {entity}</b>\n{msg_trigger} (Down for {format_time_delta(time_down)})")
+                    duration_str = format_time_delta(time_active)
+                    duration_text = f"Down for {duration_str}" if metric == 'offline' else f"Active for {duration_str}"
+                    
+                    if not global_mute: send_telegram(f"🚨 <b>REMINDER: {entity}</b>\n{msg_trigger} ({duration_text})")
                     state['last_alert_time'] = now
                     state_changed = True
     else:
         if state['is_alerting']:
-            duration = format_time_delta(now - state['first_alert_time'])
+            duration_str = format_time_delta(now - state['first_alert_time'])
+            duration_text = f"Was down for {duration_str}" if metric == 'offline' else f"Condition lasted {duration_str}"
+            
             if not silent_resolve:
-                if not global_mute: send_telegram(f"🟢 <b>RESOLVED: {entity}</b>\n{msg_recover} (Was down for {duration})")
-                log_event(entity, 'RESOLVED', f"{msg_recover} (Downtime: {duration})")
+                if not global_mute: send_telegram(f"🟢 <b>RESOLVED: {entity}</b>\n{msg_recover} ({duration_text})")
+                log_event(entity, 'RESOLVED', f"{msg_recover} (Duration: {duration_str})")
+                
             state['is_alerting'] = False
             state['first_alert_time'] = 0
             state['count'] = 0
@@ -212,10 +220,12 @@ def collect_pihole_stats():
         if res.status_code == 200:
             d = res.json()
             state = d.get('state', 'unknown')
-            domains = d.get('gravity', {}).get('domains_being_blocked', 0)
-            queries = d.get('queries', {}).get('total', 0)
-            blocked = d.get('queries', {}).get('blocked', 0)
-            percent = d.get('queries', {}).get('percent_blocked', 0.0)
+            
+            # Smart Fallback for both Pi-Hole v5 and v6 APIs
+            domains = d.get('gravity', {}).get('domains_being_blocked', d.get('domains_being_blocked', 0))
+            queries = d.get('queries', {}).get('total', d.get('dns_queries_today', 0))
+            blocked = d.get('queries', {}).get('blocked', d.get('ads_blocked_today', 0))
+            percent = d.get('queries', {}).get('percent_blocked', d.get('ads_percentage_today', 0.0))
             
             conn = sqlite3.connect(DB_NAME, timeout=15)
             conn.execute('DELETE FROM pihole_stats')
@@ -254,6 +264,9 @@ def check_tcp(name, ip, port):
     return ('app', name, 'stopped', 0.0, 0.0, 0.0, 0.0)
 
 def check_ptero(name, uuid):
+    if not PTERO_URL or not PTERO_TOKEN:
+        return ('game', name, 'stopped', 0.0, 0.0, 0.0, 0.0)
+    
     headers = {"Authorization": f"Bearer {PTERO_TOKEN}", "Accept": "application/json"}
     for attempt in range(3):
         try:
@@ -289,7 +302,7 @@ def collect_and_store():
         print(f"Database read error: {e}")
         return
 
-    metrics_batch, downtime_updates, alerts, new_entities = [], [], [], []
+    metrics_batch, downtime_updates, alerts, new_entities, sys_updates = [], [], [], [], []
     now = time.time()
     futures = []
     pool_size = min(40, len(cfg) + 5)
@@ -311,84 +324,106 @@ def collect_and_store():
             elif e_type == 'game': futures.append(executor.submit(check_ptero, name, data['uuid']))
 
         proxmox_success = False
-        for attempt in range(2):
-            try:
-                proxmox = ProxmoxAPI(PROXMOX_IP, user=TOKEN_ID.split('!')[0], token_name=TOKEN_ID.split('!')[1], token_value=TOKEN_SECRET, verify_ssl=False, timeout=6)
-                my_node = proxmox.nodes.get()[0]['node']
-                
-                host_status = proxmox.nodes(my_node).status.get()
-                host_cpu = (host_status.get('cpu') or 0.0) * 100
-                host_mu = (host_status.get('memory', {}).get('used') or 0.0) / (1024**3)
-                host_mt = (host_status.get('memory', {}).get('total') or 0.0) / (1024**3)
-                
-                if cfg.get(('CORE-PVE', 'host'), {}).get('enabled') != 0:
-                    metrics_batch.append(('CORE-PVE', 'host', 'running', host_cpu, host_mu, host_mt, 0.0, 0.0, 0.0, 0.0, 0.0))
-                    cldwn = cfg.get(('CORE-PVE', 'host'), {}).get('cooldown', 3600)
-                    cpu_thresh = cfg.get(('CORE-PVE', 'host'), {}).get('cpu_thresh', 90.0)
-                    alerts.append(('CORE-PVE', 'api_offline', False, 2, "", "", 0.0, False, cldwn, False))
-                    alerts.append(('CORE-PVE', 'cpu', host_cpu > cpu_thresh, 3, f"Host CPU critical at {host_cpu:.1f}%", "Host CPU normalized.", 0.0, False, cldwn, False))
-
-                # Discovery & Polling of Proxmox Storage Arrays
-                for storage in proxmox.nodes(my_node).storage.get():
-                    name = f"DS-{storage.get('storage')}"
-                    if name in IGNORE_ENTITIES: continue
-                    if (name, 'storage') not in cfg:
-                        new_entities.append((name, 'storage', 1, 'Local'))
-                        cfg[(name, 'storage')] = {'enabled': 1, 'down_since': 0.0, 'cooldown': 3600, 'cpu_thresh': 90.0, 'mem_thresh': 90.0, 'location': 'Local'}
-                    if cfg[(name, 'storage')]['enabled'] == 0: continue
+        if PROXMOX_IP and TOKEN_ID and TOKEN_SECRET:
+            for attempt in range(2):
+                try:
+                    proxmox = ProxmoxAPI(PROXMOX_IP, user=TOKEN_ID.split('!')[0], token_name=TOKEN_ID.split('!')[1], token_value=TOKEN_SECRET, verify_ssl=False, timeout=6)
+                    my_node = proxmox.nodes.get()[0]['node']
                     
-                    if storage.get('active') == 1:
-                        disk_used = storage.get('used', 0) / 1073741824
-                        disk_total = storage.get('total', 1) / 1073741824
-                        metrics_batch.append((name, 'storage', 'running', 0.0, 0.0, 0.0, disk_used, disk_total, 0.0, 0.0, 0.0))
-                    else:
-                        metrics_batch.append((name, 'storage', 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
-
-                for lxc in proxmox.nodes(my_node).lxc.get():
-                    name = lxc.get('name')
-                    if name in IGNORE_ENTITIES: continue
-                    if (name, 'lxc') not in cfg:
-                        new_entities.append((name, 'lxc', 1, 'Local'))
-                        cfg[(name, 'lxc')] = {'enabled': 1, 'down_since': 0.0, 'cooldown': 3600, 'cpu_thresh': 90.0, 'mem_thresh': 90.0, 'location': 'Local'}
-                    if cfg[(name, 'lxc')]['enabled'] == 0: continue
+                    if (my_node, 'host') not in cfg:
+                        new_entities.append((my_node, 'host', 1, 'Local'))
+                        cfg[(my_node, 'host')] = {'enabled': 1, 'down_since': 0.0, 'cooldown': 3600, 'cpu_thresh': 90.0, 'mem_thresh': 90.0, 'location': 'Local'}
                     
-                    if lxc.get('status') == 'running':
-                        metrics_batch.append((name, 'lxc', 'running', (lxc.get('cpu') or 0.0)*100, (lxc.get('mem') or 0)/1073741824, (lxc.get('maxmem') or 0)/1073741824, 0.0, 0.0, 0.0, 0.0, 0.0))
-                    else:
-                        metrics_batch.append((name, 'lxc', 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
-
-                for vm in proxmox.nodes(my_node).qemu.get():
-                    name = vm.get('name')
-                    vmid = vm.get('vmid')
-                    if name in IGNORE_ENTITIES: continue
-                    if (name, 'vm') not in cfg:
-                        new_entities.append((name, 'vm', 1, 'Local'))
-                        cfg[(name, 'vm')] = {'enabled': 1, 'down_since': 0.0, 'cooldown': 3600, 'cpu_thresh': 90.0, 'mem_thresh': 90.0, 'location': 'Local'}
-                    if cfg[(name, 'vm')]['enabled'] == 0: continue
-                    
-                    if vm.get('status') == 'running':
+                    if cfg[(my_node, 'host')]['enabled'] != 0:
+                        host_status = proxmox.nodes(my_node).status.get()
+                        host_cpu = (host_status.get('cpu') or 0.0) * 100
+                        host_mu = (host_status.get('memory', {}).get('used') or 0.0) / (1024**3)
+                        host_mt = (host_status.get('memory', {}).get('total') or 0.0) / (1024**3)
+                        
+                        rootfs = host_status.get('rootfs', {})
+                        host_du = rootfs.get('used', 0) / (1024**3)
+                        host_dt = rootfs.get('total', 1) / (1024**3)
+                        
+                        # Correct Rx/Tx Polling via Proxmox RRD (Round Robin Database)
+                        rx_mbps, tx_mbps = 0.0, 0.0
                         try:
-                            vm_stat = proxmox.nodes(my_node).qemu(vmid).status.current.get()
-                            v_cpu = (vm_stat.get('cpu') or 0.0) * 100
-                            v_mu = (vm_stat.get('mem') or 0.0) / 1073741824
-                            v_mt = (vm_stat.get('maxmem') or 0.0) / 1073741824
-                        except Exception:
-                            v_cpu = (vm.get('cpu') or 0.0) * 100
-                            v_mu = (vm.get('mem') or 0.0) / 1073741824
-                            v_mt = (vm.get('maxmem') or 0.0) / 1073741824
-                        metrics_batch.append((name, 'vm', 'running', v_cpu, v_mu, v_mt, 0.0, 0.0, 0.0, 0.0, 0.0))
-                    else:
-                        metrics_batch.append((name, 'vm', 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
-                proxmox_success = True
-                break
-            except Exception:
-                time.sleep(1)
-        
-        if not proxmox_success:
-            if cfg.get(('CORE-PVE', 'host'), {}).get('enabled') != 0:
-                metrics_batch.append(('CORE-PVE', 'host', 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
-                cldwn = cfg.get(('CORE-PVE', 'host'), {}).get('cooldown', 3600)
-                alerts.append(('CORE-PVE', 'api_offline', True, 2, "Proxmox API unreachable.", "Proxmox API online.", 0.0, False, cldwn, False))
+                            rrd_data = proxmox.nodes(my_node).rrddata.get(timeframe='hour')
+                            if rrd_data:
+                                # Reverse iterate to find the most recent valid network metric
+                                for point in reversed(rrd_data):
+                                    if point.get('netin') is not None and point.get('netout') is not None:
+                                        # Proxmox returns bytes per second. Convert to Megabits per second.
+                                        rx_mbps = (point['netin'] * 8) / 1_000_000
+                                        tx_mbps = (point['netout'] * 8) / 1_000_000
+                                        break
+                        except Exception: pass
+                        
+                        sys_updates.append(('host_uptime', str(host_status.get('uptime', 0))))
+                        
+                        metrics_batch.append((my_node, 'host', 'running', host_cpu, host_mu, host_mt, host_du, host_dt, rx_mbps, tx_mbps, 0.0))
+                        
+                        cldwn = cfg.get((my_node, 'host'), {}).get('cooldown', 3600)
+                        cpu_thresh = cfg.get((my_node, 'host'), {}).get('cpu_thresh', 90.0)
+                        alerts.append((my_node, 'api_offline', False, 2, "", "", 0.0, False, cldwn, False))
+                        alerts.append((my_node, 'cpu', host_cpu > cpu_thresh, 3, f"Host CPU critical at {host_cpu:.1f}%", "Host CPU normalized.", 0.0, False, cldwn, False))
+
+                    for storage in proxmox.nodes(my_node).storage.get():
+                        name = f"DS-{storage.get('storage')}"
+                        if (name, 'storage') not in cfg:
+                            new_entities.append((name, 'storage', 1, 'Local'))
+                            cfg[(name, 'storage')] = {'enabled': 1, 'down_since': 0.0, 'cooldown': 3600, 'cpu_thresh': 90.0, 'mem_thresh': 90.0, 'location': 'Local'}
+                        if cfg[(name, 'storage')]['enabled'] == 0: continue
+                        
+                        if storage.get('active') == 1:
+                            disk_used = storage.get('used', 0) / 1073741824
+                            disk_total = storage.get('total', 1) / 1073741824
+                            metrics_batch.append((name, 'storage', 'running', 0.0, 0.0, 0.0, disk_used, disk_total, 0.0, 0.0, 0.0))
+                        else:
+                            metrics_batch.append((name, 'storage', 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+
+                    for lxc in proxmox.nodes(my_node).lxc.get():
+                        name = lxc.get('name')
+                        if (name, 'lxc') not in cfg:
+                            new_entities.append((name, 'lxc', 1, 'Local'))
+                            cfg[(name, 'lxc')] = {'enabled': 1, 'down_since': 0.0, 'cooldown': 3600, 'cpu_thresh': 90.0, 'mem_thresh': 90.0, 'location': 'Local'}
+                        if cfg[(name, 'lxc')]['enabled'] == 0: continue
+                        
+                        if lxc.get('status') == 'running':
+                            metrics_batch.append((name, 'lxc', 'running', (lxc.get('cpu') or 0.0)*100, (lxc.get('mem') or 0)/1073741824, (lxc.get('maxmem') or 0)/1073741824, 0.0, 0.0, 0.0, 0.0, 0.0))
+                        else:
+                            metrics_batch.append((name, 'lxc', 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+
+                    for vm in proxmox.nodes(my_node).qemu.get():
+                        name = vm.get('name')
+                        vmid = vm.get('vmid')
+                        if (name, 'vm') not in cfg:
+                            new_entities.append((name, 'vm', 1, 'Local'))
+                            cfg[(name, 'vm')] = {'enabled': 1, 'down_since': 0.0, 'cooldown': 3600, 'cpu_thresh': 90.0, 'mem_thresh': 90.0, 'location': 'Local'}
+                        if cfg[(name, 'vm')]['enabled'] == 0: continue
+                        
+                        if vm.get('status') == 'running':
+                            try:
+                                vm_stat = proxmox.nodes(my_node).qemu(vmid).status.current.get()
+                                v_cpu = (vm_stat.get('cpu') or 0.0) * 100
+                                v_mu = (vm_stat.get('mem') or 0.0) / 1073741824
+                                v_mt = (vm_stat.get('maxmem') or 0.0) / 1073741824
+                            except Exception:
+                                v_cpu = (vm.get('cpu') or 0.0) * 100
+                                v_mu = (vm.get('mem') or 0.0) / 1073741824
+                                v_mt = (vm.get('maxmem') or 0.0) / 1073741824
+                            metrics_batch.append((name, 'vm', 'running', v_cpu, v_mu, v_mt, 0.0, 0.0, 0.0, 0.0, 0.0))
+                        else:
+                            metrics_batch.append((name, 'vm', 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+                    proxmox_success = True
+                    break
+                except Exception:
+                    time.sleep(1)
+            
+            if not proxmox_success:
+                for (n, t), data in cfg.items():
+                    if t == 'host' and data['enabled'] != 0:
+                        metrics_batch.append((n, 'host', 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+                        alerts.append((n, 'api_offline', True, 2, "Proxmox API unreachable.", "Proxmox API online.", 0.0, False, data['cooldown'], False))
 
         for future in as_completed(futures, timeout=15):
             try:
@@ -443,6 +478,10 @@ def collect_and_store():
             
         w_conn.executemany('INSERT INTO metrics (entity_name, entity_type, status, cpu_usage, mem_used, mem_total, disk_used, disk_total, net_in, net_out, ping_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', metrics_batch)
         w_conn.executemany('INSERT OR REPLACE INTO latest_metrics (entity_name, entity_type, status, cpu_usage, mem_used, mem_total, disk_used, disk_total, net_in, net_out, ping_ms, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)', metrics_batch)
+        
+        if sys_updates:
+            w_conn.executemany("INSERT OR REPLACE INTO sys_settings (key, value) VALUES (?, ?)", sys_updates)
+            
         w_conn.commit()
         w_conn.close()
     except Exception as e:
@@ -492,6 +531,14 @@ if __name__ == "__main__":
                 except Exception: pass
 
     except KeyboardInterrupt: pass
+
+    
+
+
+
+
+
+
 
     
 

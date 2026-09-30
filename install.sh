@@ -29,15 +29,21 @@ echo -e "\033[1;36m[3/5] Configuring .env file...\033[0m"
 if [ ! -f .env ]; then
     sudo -u $APP_USER cat << 'EOF' > .env
 # HackNet NOC Secrets
-PROXMOX_IP=10.10.x.x
-PROXMOX_TOKEN_ID=root@pam!your_token_name
-PROXMOX_TOKEN_SECRET=your_proxmox_api_secret_here
-PTERO_URL=http://10.10.x.x
-PTERO_TOKEN=your_pterodactyl_client_api_key_here
-TELEGRAM_TOKEN=your_telegram_bot_token_here
-TELEGRAM_CHAT_ID=your_telegram_chat_id_here
+# Note: Leave any IP/URL blank to disable that module.
+
+PROXMOX_IP=
+PROXMOX_TOKEN_ID=
+PROXMOX_TOKEN_SECRET=
+
+PTERO_URL=
+PTERO_TOKEN=
+
+TELEGRAM_TOKEN=
+TELEGRAM_CHAT_ID=
+
 PIHOLE_IP=
 PIHOLE_APP_PASSWORD=
+
 ADMIN_SECRET_KEY=super_secret_password_change_me
 EOF
     echo -e "   -> Created template .env file."
@@ -90,3 +96,4 @@ echo -e "\033[1;32m====================================\033[0m"
 echo -e "1. Edit your \033[1;33m.env\033[0m file to add your API keys."
 echo -e "2. Run \033[1;33msudo systemctl start hacknet-api hacknet-collector\033[0m"
 echo -e "3. Access your dashboard at: \033[1;36mhttp://$(hostname -I | awk '{print $1}'):8000\033[0m\n"
+

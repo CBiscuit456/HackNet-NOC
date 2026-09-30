@@ -14,6 +14,7 @@
             font-family: 'Inter', sans-serif; 
             background-color: #000000; 
             color: #e4e4e7; 
+            overflow-x: hidden;
         }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
 
@@ -34,205 +35,172 @@
             background-color: rgba(0, 0, 0, 0.6);
             border: 1px solid rgba(255, 255, 255, 0.1);
             color: white;
+            transition: all 0.2s;
         }
         .dark-input:focus { outline: none; border-color: #39ff14; box-shadow: 0 0 10px rgba(57, 255, 20, 0.2); }
 
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
         .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
         .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgba(57, 255, 20, 0.5); }
     </style>
 </head>
-<body class="min-h-screen relative pb-10">
+<body class="min-h-screen relative flex flex-col pb-10" x-data="adminApp()" x-init="checkAuth()" x-cloak>
+
+    <!-- LOADING SCREEN OVERLAY -->
+    <div x-show="isLoading" 
+         x-transition:leave="transition ease-in duration-700" 
+         x-transition:leave-start="opacity-100" 
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black">
+        <div class="absolute inset-0 bg-[url('/static/boot_logo.jpeg')] bg-cover bg-center opacity-20"></div>
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
+        
+        <div class="relative z-10 flex flex-col items-center animate-pulse">
+            <img src="/static/boot_logo.jpeg" class="w-32 h-32 md:w-40 md:h-40 rounded-full border-2 border-neon-green shadow-[0_0_40px_rgba(57,255,20,0.4)] mb-6 object-cover">
+            <h1 class="text-4xl md:text-6xl font-black text-white tracking-tighter drop-shadow-lg mb-2">
+                HACKNET <span class="text-neon-green">ADMIN</span>
+            </h1>
+            <p class="text-zinc-400 font-mono text-xs md:text-sm uppercase tracking-[0.3em] mb-12 font-bold">Your HomeLab, Managed</p>
+            <div class="mt-8 text-zinc-600 font-mono text-[9px] md:text-[10px] uppercase tracking-widest font-bold">Created by CB456</div>
+        </div>
+    </div>
 
     <div class="fixed inset-0 z-0 bg-[url('/static/boot_logo.jpeg')] bg-cover bg-center bg-no-repeat opacity-30"></div>
     <div class="fixed inset-0 z-0 bg-black/80 backdrop-blur-md"></div> 
 
-    <div x-data="adminApp()" x-init="checkAuth()" class="relative z-10 max-w-[1700px] mx-auto p-4 md:p-8" x-cloak>
+    <div class="relative z-10 w-full flex-1 flex flex-col p-4 md:p-8">
         
         <!-- HEADER -->
-        <header class="flex flex-col md:flex-row justify-between items-end mb-8 pb-4 border-b border-zinc-800">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 pb-4 border-b border-zinc-800/80 shrink-0 gap-4">
             <div>
-                <h1 class="text-4xl font-black text-white tracking-tighter drop-shadow-lg">
+                <h1 class="text-4xl md:text-5xl font-black text-white tracking-tighter drop-shadow-lg">
                     HACKNET <span class="text-neon-green">ADMIN</span>
                 </h1>
-                <p class="text-zinc-500 font-mono text-xs mt-1 uppercase tracking-widest">Sensor Management & Audit Console</p>
+                <p class="text-zinc-500 font-mono text-[10px] mt-1.5 uppercase tracking-[0.2em] font-bold">Sensor Management & Audit Console</p>
             </div>
-            <a href="/" class="mt-4 md:mt-0 px-6 py-2.5 glass-panel hover:bg-zinc-900 border border-zinc-700 text-white rounded text-sm font-black uppercase tracking-widest transition-colors flex items-center gap-2">
-                <svg class="w-5 h-5 text-neon-green" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            <a href="/" class="px-6 py-2.5 glass-panel hover:bg-zinc-900 border border-zinc-700 text-zinc-300 hover:text-neon-green hover:border-neon-green rounded text-xs font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-2">
+                <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
                 NOC Display
             </a>
         </header>
 
         <!-- LOGIN SCREEN -->
-        <div x-show="!isAuthenticated" class="glass-panel p-8 rounded-xl max-w-md mx-auto text-center mt-20">
+        <div x-show="!isAuthenticated && !isLoading" class="glass-panel p-8 rounded-xl w-full max-w-md mx-auto text-center mt-10 md:mt-20">
             <div class="w-16 h-16 bg-black border border-zinc-800 text-neon-green rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_15px_rgba(57,255,20,0.2)]">
                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
             </div>
             <h2 class="text-2xl font-black mb-2 text-white tracking-wide uppercase">Admin Access</h2>
             <p class="text-zinc-500 font-mono text-xs mb-6 uppercase tracking-wider">Authentication Required</p>
-            <input type="password" x-model="password" @keyup.enter="login()" placeholder="Enter Authorization Key..." class="dark-input w-full rounded p-3 mb-6 text-center font-mono text-lg">
+            <input type="password" x-model="password" @keyup.enter="login()" placeholder="Enter Authorization Key..." class="dark-input w-full rounded p-3 mb-6 text-center font-mono text-lg tracking-widest">
             <button @click="login()" class="w-full bg-[#39ff14]/90 hover:bg-[#39ff14] text-black font-black uppercase tracking-widest py-3 rounded shadow-[0_0_15px_rgba(57,255,20,0.3)] transition-all">Authenticate</button>
         </div>
 
-        <!-- MAIN SPLIT DASHBOARD -->
-        <div x-show="isAuthenticated" class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <!-- MAIN DASHBOARD FLOW -->
+        <div x-show="isAuthenticated && !isLoading" class="flex-1 grid grid-cols-1 xl:grid-cols-4 gap-6 min-h-0">
             
-            <!-- LEFT COLUMN: SENSORS -->
-            <div class="xl:col-span-2 space-y-8">
+            <!-- LEFT COLUMN: SENSOR LIST -->
+            <div class="xl:col-span-3 flex flex-col glass-panel rounded-xl overflow-hidden shadow-2xl border border-zinc-800/80 min-h-[600px] xl:min-h-0">
                 
-                <!-- ADD / EDIT SENSOR FORM -->
-                <div class="glass-panel p-6 md:p-8 rounded-xl border-t-4 transition-colors relative" :class="isEditing ? 'border-neon-purple' : 'border-neon-green'">
-                    <div class="flex justify-between items-center mb-6 border-b border-zinc-800 pb-3">
-                        <h2 class="text-lg font-black text-white uppercase tracking-wider" x-text="isEditing ? 'Edit Sensor Configuration' : 'Deploy New Sensor'"></h2>
-                        <button x-show="isEditing" @click="cancelEdit()" class="text-[10px] font-black text-red-500 hover:text-red-400 uppercase tracking-widest bg-red-500/10 border border-red-500/30 px-3 py-1.5 rounded transition-colors">Cancel Edit</button>
+                <!-- Advanced Toolbar -->
+                <div class="bg-black/90 p-4 border-b border-zinc-800 flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
+                    <div class="flex gap-2 flex-wrap">
+                        <template x-for="tab in tabs" :key="tab.id">
+                            <button @click="activeTab = tab.id" 
+                                    class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border"
+                                    :class="activeTab === tab.id ? 'bg-neon-green/20 text-neon-green border-neon-green shadow-[0_0_10px_rgba(57,255,20,0.15)]' : 'bg-transparent text-zinc-500 border-zinc-800 hover:text-zinc-300 hover:border-zinc-600'"
+                                    x-text="tab.label"></button>
+                        </template>
                     </div>
-
-                    <form @submit.prevent="saveTarget()" class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                        <div class="md:col-span-3">
-                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Sensor Name</label>
-                            <input x-model="form.name" type="text" placeholder="e.g. Ark_Server" class="dark-input w-full rounded p-2.5 font-mono text-sm" required>
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Type</label>
-                            <select x-model="form.entity_type" class="dark-input w-full rounded p-2.5 font-mono text-sm" required>
-                                <option value="" disabled>Select...</option>
-                                <option value="network">Network (Ping)</option>
-                                <option value="app">App (TCP Port)</option>
-                                <option value="game">Game (Pterodactyl)</option>
-                                <option value="storage">Proxmox Storage</option>
-                            </select>
-                        </div>
-                        <div class="md:col-span-3">
-                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">IP / Target</label>
-                            <input x-model="form.target_address" type="text" placeholder="10.10.x.x" class="dark-input w-full rounded p-2.5 font-mono text-sm">
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Port</label>
-                            <input x-model="form.port" type="number" placeholder="80" class="dark-input w-full rounded p-2.5 font-mono text-sm">
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Location / Tag</label>
-                            <input x-model="form.location" type="text" placeholder="e.g. US-East" class="dark-input w-full rounded p-2.5 font-mono text-sm">
-                        </div>
-
-                        <div class="md:col-span-4">
-                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Alert Priority (Cooldown)</label>
-                            <select x-model="form.cooldown_interval" class="dark-input w-full rounded p-2.5 font-mono text-sm">
-                                <option value="600">High (10 Mins)</option>
-                                <option value="1200">Elevated (20 Mins)</option>
-                                <option value="3600">Standard (1 Hour)</option>
-                                <option value="14400">Low (4 Hours)</option>
-                                <option value="86400">Daily (24 Hours)</option>
-                            </select>
-                        </div>
-
-                        <!-- Thresholds (Dynamic display based on type) -->
-                        <div x-show="['host', 'vm', 'lxc', 'game'].includes(form.entity_type)" class="md:col-span-2">
-                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">CPU Alert %</label>
-                            <input x-model="form.cpu_threshold" type="number" step="0.1" placeholder="90.0" class="dark-input w-full rounded p-2.5 font-mono text-sm text-neon-green">
-                        </div>
-                        
-                        <div x-show="['host', 'vm', 'lxc', 'game', 'storage'].includes(form.entity_type)" class="md:col-span-2">
-                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1" x-text="form.entity_type === 'storage' ? 'Disk Alert %' : 'RAM Alert %'"></label>
-                            <input x-model="form.mem_threshold" type="number" step="0.1" placeholder="90.0" class="dark-input w-full rounded p-2.5 font-mono text-sm text-neon-purple">
-                        </div>
-
-                        <div class="md:col-span-4 flex items-end">
-                            <button type="submit" class="w-full font-black uppercase tracking-widest py-2.5 rounded shadow-lg transition-all border"
-                                    :class="isEditing ? 'bg-neon-purple/20 text-neon-purple border-neon-purple hover:bg-neon-purple hover:text-black shadow-[0_0_15px_rgba(176,38,255,0.2)]' : 'bg-[#39ff14]/20 text-neon-green border-neon-green hover:bg-[#39ff14] hover:text-black shadow-[0_0_15px_rgba(57,255,20,0.2)]'"
-                                    x-text="isEditing ? 'Save Changes' : 'Deploy Target'"></button>
-                        </div>
-                        
-                        <div x-show="form.entity_type === 'game'" class="md:col-span-12 mt-2 pt-4 border-t border-zinc-800">
-                            <label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Pterodactyl Server UUID</label>
-                            <input x-model="form.uuid" type="text" placeholder="Enter full server UUID..." class="dark-input w-full md:w-1/2 rounded p-2.5 font-mono text-sm">
-                        </div>
-                    </form>
-                </div>
-
-                <!-- SENSOR LIST W/ TABS & SEARCH -->
-                <div class="glass-panel rounded-xl overflow-hidden flex flex-col">
-                    
-                    <!-- Filters & Search -->
-                    <div class="bg-black/80 p-4 border-b border-zinc-800 flex flex-col md:flex-row justify-between items-center gap-4">
-                        <div class="flex gap-2 flex-wrap">
-                            <template x-for="tab in tabs" :key="tab.id">
-                                <button @click="activeTab = tab.id" 
-                                        class="px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-widest transition-colors border"
-                                        :class="activeTab === tab.id ? 'bg-neon-green/20 text-neon-green border-neon-green/50' : 'bg-transparent text-zinc-500 border-transparent hover:text-zinc-300'"
-                                        x-text="tab.label"></button>
-                            </template>
-                        </div>
+                    <div class="flex items-center gap-3 w-full md:w-auto">
                         <div class="relative w-full md:w-64">
-                            <input x-model="searchQuery" type="text" placeholder="Search sensors..." class="dark-input w-full rounded-full py-1.5 pl-4 pr-10 text-xs font-mono">
+                            <input x-model="searchQuery" type="text" placeholder="Search infrastructure..." class="dark-input w-full rounded-full py-1.5 pl-4 pr-10 text-xs font-mono">
                             <svg class="w-4 h-4 text-zinc-500 absolute right-3 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         </div>
+                        <button @click="openNewForm()" class="px-4 py-1.5 bg-neon-green/10 text-neon-green border border-neon-green/50 hover:bg-neon-green hover:text-black rounded text-[10px] font-black uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(57,255,20,0.1)] whitespace-nowrap flex items-center gap-2">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            Add Sensor
+                        </button>
                     </div>
+                </div>
 
-                    <!-- Data Table -->
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse min-w-[800px]">
-                            <thead class="bg-black/40 border-b border-zinc-800 text-zinc-500 text-[10px] uppercase tracking-widest font-black">
-                                <tr>
-                                    <th class="px-5 py-3">State</th>
-                                    <th class="px-5 py-3">Sensor Name</th>
-                                    <th class="px-5 py-3">Type</th>
-                                    <th class="px-5 py-3">Config / Address</th>
-                                    <th class="px-5 py-3 text-right">Actions</th>
+                <!-- High-Density Data Table -->
+                <div class="flex-1 overflow-auto custom-scroll bg-black/40">
+                    <table class="w-full text-left border-collapse min-w-[900px]">
+                        <thead class="bg-black/80 sticky top-0 z-10 border-b border-zinc-800 text-zinc-500 text-[9px] uppercase tracking-[0.2em] font-black shadow-md">
+                            <tr>
+                                <th class="px-5 py-3 w-24 text-center">State</th>
+                                <th class="px-5 py-3">Sensor Identity</th>
+                                <th class="px-5 py-3">Classification</th>
+                                <th class="px-5 py-3">Telemetry Policy</th>
+                                <th class="px-5 py-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-800/40">
+                            <tr x-show="filteredTargets.length === 0">
+                                <td colspan="5" class="px-5 py-12 text-center text-zinc-600 font-mono text-[10px] uppercase tracking-widest">No infrastructure matches your filter</td>
+                            </tr>
+                            <template x-for="t in filteredTargets" :key="t.entity_name + t.entity_type">
+                                <tr class="hover:bg-zinc-900/40 transition-colors group">
+                                    <td class="px-5 py-3 text-center">
+                                        <div class="inline-flex items-center justify-center w-8 h-8 rounded-full border shadow-inner"
+                                             :class="t.is_enabled === 0 ? 'bg-zinc-950 border-zinc-800' : 'bg-emerald-950 border-emerald-900/50'">
+                                            <div class="w-2.5 h-2.5 rounded-full"
+                                                 :class="t.is_enabled === 0 ? 'bg-zinc-700' : 'bg-neon-green shadow-[0_0_8px_rgba(57,255,20,0.6)] animate-pulse'"></div>
+                                        </div>
+                                    </td>
+                                    <td class="px-5 py-3">
+                                        <div class="font-black text-zinc-200 uppercase tracking-wider text-sm drop-shadow" x-text="t.entity_name"></div>
+                                        <div class="text-[9px] font-mono text-zinc-500 tracking-widest truncate max-w-[250px] mt-0.5" x-text="t.target_address || t.uuid || 'N/A'"></div>
+                                    </td>
+                                    <td class="px-5 py-3">
+                                        <div class="flex gap-2 items-center">
+                                            <span class="text-[9px] font-mono font-bold bg-black border border-zinc-800 text-zinc-400 px-2 py-0.5 rounded uppercase tracking-widest" x-text="t.entity_type"></span>
+                                            <span class="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest" x-text="t.location || 'Local'"></span>
+                                        </div>
+                                    </td>
+                                    <td class="px-5 py-3 font-mono text-xs flex gap-2 items-center">
+                                        <span class="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-widest uppercase border"
+                                              :class="t.cooldown_interval <= 1200 ? 'bg-red-950/50 text-red-400 border-red-900/50' : 'bg-blue-950/30 text-blue-400 border-blue-900/50'"
+                                              x-text="getCooldownText(t.cooldown_interval)"></span>
+                                        <span x-show="t.cpu_threshold && t.entity_type !== 'storage'" class="text-[9px] text-zinc-400 font-bold tracking-widest uppercase"><span class="text-amber-500">CPU</span> <span x-text="t.cpu_threshold + '%'"></span></span>
+                                        <span x-show="t.mem_threshold" class="text-[9px] text-zinc-400 font-bold tracking-widest uppercase"><span class="text-neon-purple" x-text="t.entity_type === 'storage' ? 'DSK' : 'RAM'"></span> <span x-text="t.mem_threshold + '%'"></span></span>
+                                    </td>
+                                    <td class="px-5 py-3 text-right">
+                                        <div class="flex justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                                            <button @click="editTarget(t)" class="p-1.5 text-zinc-400 hover:text-neon-purple hover:bg-neon-purple/10 border border-transparent hover:border-neon-purple/50 rounded transition-all" title="Edit Configuration">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                            </button>
+                                            <button @click="toggleTarget(t)" class="p-1.5 transition-all border rounded"
+                                                    :class="t.is_enabled === 1 ? 'text-amber-500 border-transparent hover:border-amber-500/50 hover:bg-amber-500/10' : 'text-neon-green border-transparent hover:border-neon-green/50 hover:bg-neon-green/10'"
+                                                    :title="t.is_enabled === 1 ? 'Pause Monitoring' : 'Resume Monitoring'">
+                                                <svg x-show="t.is_enabled === 1" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                <svg x-show="t.is_enabled === 0" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                            </button>
+                                            <button @click="deleteTarget(t)" class="p-1.5 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/50 rounded transition-all" title="Delete Sensor">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                            </button>
+                                        </div>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody class="divide-y divide-zinc-800/50">
-                                <tr x-show="filteredTargets.length === 0">
-                                    <td colspan="5" class="px-5 py-8 text-center text-zinc-600 font-mono text-xs uppercase tracking-widest">No sensors match your filter</td>
-                                </tr>
-                                <template x-for="t in filteredTargets" :key="t.entity_name + t.entity_type">
-                                    <tr class="hover:bg-zinc-900/50 transition-colors">
-                                        <td class="px-5 py-3 whitespace-nowrap">
-                                            <span class="px-2 py-1 text-[10px] font-black tracking-widest rounded border uppercase"
-                                                  :class="t.is_enabled === 0 ? 'bg-zinc-900 border-zinc-700 text-zinc-500' : 'bg-emerald-900/30 border-emerald-500/50 text-emerald-400'"
-                                                  x-text="t.is_enabled === 0 ? 'PAUSED' : 'MONITORING'"></span>
-                                        </td>
-                                        <td class="px-5 py-3 whitespace-nowrap font-black text-white uppercase tracking-wider text-sm" x-text="t.entity_name"></td>
-                                        <td class="px-5 py-3 whitespace-nowrap">
-                                            <span class="text-[9px] font-mono font-bold bg-black border border-zinc-800 text-zinc-400 px-2 py-1 rounded uppercase tracking-widest" x-text="t.entity_type"></span>
-                                            <span class="text-[9px] font-mono font-bold bg-black border border-zinc-800 text-zinc-500 px-2 py-1 rounded uppercase tracking-widest ml-1" x-text="t.location || 'Local'"></span>
-                                        </td>
-                                        <td class="px-5 py-3 whitespace-nowrap font-mono text-xs text-zinc-400 flex flex-col gap-1">
-                                            <span class="truncate max-w-[200px]" title="Address" x-text="t.target_address || t.uuid || 'N/A'"></span>
-                                            <div class="flex gap-2 text-[9px] font-bold uppercase tracking-widest">
-                                                <span class="text-cyan-500" x-text="'PRIORITY: ' + getCooldownText(t.cooldown_interval)"></span>
-                                                <span x-show="t.cpu_threshold && t.entity_type !== 'storage'" class="text-amber-500" x-text="'CPU: ' + t.cpu_threshold + '%'"></span>
-                                                <span x-show="t.mem_threshold" class="text-neon-purple" x-text="t.entity_type === 'storage' ? 'DISK: ' + t.mem_threshold + '%' : 'RAM: ' + t.mem_threshold + '%'"></span>
-                                            </div>
-                                        </td>
-                                        <td class="px-5 py-3 whitespace-nowrap text-right font-mono text-[10px] uppercase tracking-widest font-bold">
-                                            <button @click="editTarget(t)" class="text-neon-purple hover:text-white px-2 py-1 mr-1 transition-colors border border-transparent hover:border-neon-purple rounded">Edit</button>
-                                            <button @click="toggleTarget(t)" class="px-2 py-1 mr-1 transition-colors border rounded"
-                                                    :class="t.is_enabled === 1 ? 'text-amber-500 border-amber-500/30 hover:border-amber-500' : 'text-neon-green border-neon-green/30 hover:border-neon-green'"
-                                                    x-text="t.is_enabled === 1 ? 'Pause' : 'Resume'"></button>
-                                            <button @click="deleteTarget(t)" class="text-red-500 hover:text-white border border-transparent hover:border-red-500 px-2 py-1 transition-colors rounded">Delete</button>
-                                        </td>
-                                    </tr>
-                                </template>
-                            </tbody>
-                        </table>
-                    </div>
+                            </template>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
             <!-- RIGHT COLUMN: CONTROLS & LOGS -->
-            <div class="space-y-6">
+            <div class="flex flex-col gap-6 min-h-[600px] xl:min-h-0">
                 <!-- SYSTEM CONTROLS -->
-                <div class="glass-panel p-5 rounded-xl border border-zinc-700/50">
+                <div class="glass-panel p-5 rounded-xl border border-zinc-700/50 shrink-0">
                     <h3 class="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-4 border-b border-zinc-800 pb-2">System Directives</h3>
                     
-                    <button @click="forcePoll()" class="w-full mb-4 px-4 py-3 bg-black border border-zinc-700 hover:border-neon-green hover:shadow-[0_0_15px_rgba(57,255,20,0.15)] text-white font-black uppercase tracking-widest rounded transition-all flex justify-between items-center group">
-                        <span class="text-[10px]">Force Poll Network</span>
+                    <button @click="forcePoll()" class="w-full mb-3 px-4 py-2.5 bg-black border border-zinc-700 hover:border-neon-green hover:shadow-[0_0_15px_rgba(57,255,20,0.15)] text-white font-black uppercase tracking-widest rounded transition-all flex justify-between items-center group">
+                        <span class="text-[10px]">Force Network Poll</span>
                         <svg class="w-4 h-4 text-zinc-600 group-hover:text-neon-green transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                     </button>
 
-                    <button @click="toggleMute()" class="w-full px-4 py-3 font-black uppercase tracking-widest rounded transition-all flex justify-between items-center border"
+                    <button @click="toggleMute()" class="w-full px-4 py-2.5 font-black uppercase tracking-widest rounded transition-all flex justify-between items-center border"
                             :class="settings.global_mute === '1' ? 'bg-amber-500/20 text-amber-400 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 'bg-black hover:bg-zinc-900 text-zinc-400 border-zinc-700 hover:border-zinc-500'">
                         <span class="text-[10px]" x-text="settings.global_mute === '1' ? 'Unmute Alerts' : 'Mute Telegram Alerts'"></span>
                         <svg x-show="settings.global_mute !== '1'" class="w-4 h-4 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
@@ -241,7 +209,7 @@
                 </div>
 
                 <!-- AUDIT LOG -->
-                <div class="glass-panel rounded-xl flex flex-col h-[600px] border border-zinc-700/50">
+                <div class="glass-panel rounded-xl flex flex-col border border-zinc-700/50 flex-1 min-h-0">
                     <div class="p-4 border-b border-zinc-800 shrink-0 flex justify-between items-center bg-black/80 rounded-t-xl">
                         <h3 class="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2">
                             <svg class="w-3.5 h-3.5 text-neon-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -274,7 +242,100 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
 
+        <!-- SENSOR MODAL (Add / Edit) -->
+        <div x-show="isFormModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" style="display: none;">
+            <!-- Backdrop -->
+            <div x-show="isFormModalOpen" x-transition.opacity class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="closeForm()"></div>
+            
+            <!-- Modal Content -->
+            <div x-show="isFormModalOpen" 
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 class="relative glass-panel w-full max-w-4xl rounded-xl border-t-4 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                 :class="isEditing ? 'border-neon-purple' : 'border-neon-green'">
+                
+                <div class="flex justify-between items-center p-6 border-b border-zinc-800 bg-black/50 shrink-0">
+                    <h2 class="text-xl font-black text-white uppercase tracking-widest flex items-center gap-3">
+                        <svg x-show="!isEditing" class="w-6 h-6 text-neon-green" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        <svg x-show="isEditing" class="w-6 h-6 text-neon-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        <span x-text="isEditing ? 'Reconfigure Sensor' : 'Deploy New Sensor'"></span>
+                    </h2>
+                    <button @click="closeForm()" class="text-zinc-500 hover:text-white transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <div class="p-6 overflow-y-auto custom-scroll">
+                    <form @submit.prevent="saveTarget()" class="grid grid-cols-1 md:grid-cols-12 gap-5">
+                        <div class="md:col-span-4">
+                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Sensor Name / Identity</label>
+                            <input x-model="form.name" type="text" placeholder="e.g. Ark_Server" class="dark-input w-full rounded p-3 font-mono text-sm" required>
+                        </div>
+                        <div class="md:col-span-4">
+                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Entity Classification</label>
+                            <select x-model="form.entity_type" class="dark-input w-full rounded p-3 font-mono text-sm" required>
+                                <option value="" disabled>Select Type...</option>
+                                <option value="network">Network Routing (Ping)</option>
+                                <option value="app">Web / Application (TCP)</option>
+                                <option value="game">Pterodactyl Game Engine</option>
+                                <option value="storage">Proxmox Storage Array</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-4">
+                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Location / Deployment Tag</label>
+                            <input x-model="form.location" type="text" placeholder="e.g. US-East" class="dark-input w-full rounded p-3 font-mono text-sm">
+                        </div>
+
+                        <div class="md:col-span-8">
+                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">IP Address / Target URI</label>
+                            <input x-model="form.target_address" type="text" placeholder="10.10.x.x" class="dark-input w-full rounded p-3 font-mono text-sm">
+                        </div>
+                        <div class="md:col-span-4">
+                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">TCP Port</label>
+                            <input x-model="form.port" type="number" placeholder="80" class="dark-input w-full rounded p-3 font-mono text-sm">
+                        </div>
+
+                        <div class="md:col-span-4">
+                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Notification Cooldown</label>
+                            <select x-model="form.cooldown_interval" class="dark-input w-full rounded p-3 font-mono text-sm">
+                                <option value="600">Critical Priority (10 Mins)</option>
+                                <option value="1200">Elevated Priority (20 Mins)</option>
+                                <option value="3600">Standard Priority (1 Hour)</option>
+                                <option value="14400">Low Priority (4 Hours)</option>
+                                <option value="86400">Daily Digest (24 Hours)</option>
+                            </select>
+                        </div>
+
+                        <div x-show="['host', 'vm', 'lxc', 'game'].includes(form.entity_type)" class="md:col-span-4">
+                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">CPU Warning Threshold %</label>
+                            <input x-model="form.cpu_threshold" type="number" step="0.1" placeholder="90.0" class="dark-input w-full rounded p-3 font-mono text-sm text-neon-green">
+                        </div>
+                        
+                        <div x-show="['host', 'vm', 'lxc', 'game', 'storage'].includes(form.entity_type)" class="md:col-span-4">
+                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5" x-text="form.entity_type === 'storage' ? 'Disk Warning Threshold %' : 'RAM Warning Threshold %'"></label>
+                            <input x-model="form.mem_threshold" type="number" step="0.1" placeholder="90.0" class="dark-input w-full rounded p-3 font-mono text-sm text-neon-purple">
+                        </div>
+                        
+                        <div x-show="form.entity_type === 'game'" class="md:col-span-12 mt-2 p-4 border border-zinc-800 rounded bg-black/40">
+                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Pterodactyl Server UUID</label>
+                            <input x-model="form.uuid" type="text" placeholder="Enter full server UUID string..." class="dark-input w-full rounded p-3 font-mono text-sm">
+                        </div>
+
+                        <div class="md:col-span-12 mt-4 pt-6 border-t border-zinc-800 flex justify-end gap-3">
+                            <button type="button" @click="closeForm()" class="px-6 py-3 font-black uppercase tracking-widest text-xs text-zinc-400 hover:text-white transition-colors">Cancel</button>
+                            <button type="submit" class="px-8 py-3 font-black uppercase tracking-widest text-xs rounded shadow-lg transition-all border"
+                                    :class="isEditing ? 'bg-neon-purple/20 text-neon-purple border-neon-purple hover:bg-neon-purple hover:text-black shadow-[0_0_15px_rgba(176,38,255,0.2)]' : 'bg-[#39ff14]/20 text-neon-green border-neon-green hover:bg-[#39ff14] hover:text-black shadow-[0_0_15px_rgba(57,255,20,0.2)]'"
+                                    x-text="isEditing ? 'Commit Changes' : 'Initialize Sensor'"></button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -282,22 +343,24 @@
     <script>
         function adminApp() {
             return {
+                isLoading: true,
                 isAuthenticated: false,
                 password: '',
                 targets: [],
                 logs: [],
                 settings: { global_mute: '0' },
+                isFormModalOpen: false,
                 isEditing: false,
                 
                 searchQuery: '',
                 activeTab: 'all',
                 tabs: [
                     { id: 'all', label: 'All Sensors' },
-                    { id: 'proxmox', label: 'Proxmox' },
-                    { id: 'storage', label: 'Storage' },
-                    { id: 'game', label: 'Games' },
-                    { id: 'app', label: 'Apps' },
-                    { id: 'network', label: 'Network' }
+                    { id: 'proxmox', label: 'Proxmox Compute' },
+                    { id: 'storage', label: 'Storage Arrays' },
+                    { id: 'game', label: 'Pterodactyl Games' },
+                    { id: 'app', label: 'Web Services' },
+                    { id: 'network', label: 'Core Network' }
                 ],
 
                 form: { old_name: '', old_type: '', name: '', entity_type: '', target_address: '', port: '', uuid: '', cooldown_interval: 3600, cpu_threshold: 90.0, mem_threshold: 90.0, location: 'Local' },
@@ -336,7 +399,11 @@
                 },
                 checkAuth() {
                     this.password = sessionStorage.getItem('noc_admin_key') || '';
-                    if (this.password) this.login(true);
+                    if (this.password) {
+                        this.login(true);
+                    } else {
+                        setTimeout(() => this.isLoading = false, 1500);
+                    }
                 },
                 async login(silent = false) {
                     if (!this.password) return;
@@ -346,10 +413,19 @@
                         if (json.status === 'success') {
                             this.isAuthenticated = true;
                             sessionStorage.setItem('noc_admin_key', this.password);
-                            this.fetchData();
-                            this.fetchLogs();
+                            
+                            const minLoadTime = new Promise(resolve => setTimeout(resolve, 1500));
+                            const fetch1 = this.fetchData();
+                            const fetch2 = this.fetchLogs();
+                            
+                            Promise.all([minLoadTime, fetch1, fetch2]).then(() => {
+                                this.isLoading = false;
+                            });
                         }
-                    } catch (e) { if (!silent) alert("Connection failed."); }
+                    } catch (e) { 
+                        if (!silent) alert("Connection failed."); 
+                        this.isLoading = false;
+                    }
                 },
                 async fetchData() {
                     const res = await fetch('/api/live');
@@ -403,6 +479,11 @@
                     if (!confirm(`WIPE ${t.entity_name} FROM DATABASE?`)) return;
                     if (await this._api('/api/admin/targets', { name: t.entity_name, entity_type: t.entity_type }, 'DELETE')) this.fetchData();
                 },
+                openNewForm() {
+                    this.isEditing = false;
+                    this.form = { old_name: '', old_type: '', name: '', entity_type: '', target_address: '', port: '', uuid: '', cooldown_interval: 3600, cpu_threshold: 90.0, mem_threshold: 90.0, location: 'Local' };
+                    this.isFormModalOpen = true;
+                },
                 editTarget(t) {
                     this.isEditing = true;
                     this.form = { 
@@ -414,11 +495,10 @@
                         mem_threshold: t.mem_threshold || 90.0,
                         location: t.location || 'Local'
                     };
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    this.isFormModalOpen = true;
                 },
-                cancelEdit() {
-                    this.isEditing = false;
-                    this.form = { old_name: '', old_type: '', name: '', entity_type: '', target_address: '', port: '', uuid: '', cooldown_interval: 3600, cpu_threshold: 90.0, mem_threshold: 90.0, location: 'Local' };
+                closeForm() {
+                    this.isFormModalOpen = false;
                 },
                 async saveTarget() {
                     if (!this.form.port) this.form.port = 0;
@@ -431,7 +511,7 @@
                     else success = await this._api('/api/admin/targets', this.form, 'POST');
                     
                     if (success) { 
-                        this.cancelEdit(); 
+                        this.closeForm(); 
                         this.fetchData(); 
                     }
                 }
@@ -440,4 +520,7 @@
     </script>
 </body>
 </html>
+
+
+
 

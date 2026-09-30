@@ -17,21 +17,31 @@
             font-family: 'Inter', sans-serif; 
             background-color: #000000; 
             margin: 0; padding: 0;
+            overflow-x: hidden;
         }
         
         .font-mono { font-family: 'JetBrains Mono', monospace; }
 
-        .glass-panel {
-            background: rgba(10, 10, 10, 0.85);
-            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+        .hud-panel {
+            background: rgba(8, 8, 8, 0.9);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
+            border-bottom: 2px solid #39ff14;
+            box-shadow: 0 10px 40px -10px rgba(57, 255, 20, 0.15), inset 0 1px 0 rgba(255,255,255,0.05);
         }
 
-        .status-pulse-red { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); animation: pulseRed 2s infinite; border-color: rgba(239, 68, 68, 0.6); }
-        .status-paused { opacity: 0.35; filter: grayscale(100%); border-color: rgba(255, 255, 255, 0.1); }
+        .card-nominal {
+            background: rgba(15, 15, 15, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .status-pulse-red { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); animation: pulseRed 2s infinite; border-color: rgba(239, 68, 68, 0.6); background: rgba(69, 10, 10, 0.4) !important; }
+        .status-paused { opacity: 0.35; filter: grayscale(100%); }
         
         @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); } 70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        @keyframes pulseAlertText { 0% { opacity: 0.7; } 50% { opacity: 1; text-shadow: 0 0 15px rgba(239,68,68,0.8); } 100% { opacity: 0.7; } }
+        
+        .alert-header { animation: pulseAlertText 2s infinite; }
 
         .dial {
             border-radius: 50%;
@@ -44,24 +54,48 @@
         .text-neon-green { color: #39ff14; }
         .text-neon-purple { color: #b026ff; }
         .border-neon-green { border-color: #39ff14; }
+        
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
     </style>
 </head>
-<body class="text-zinc-200">
+<body class="text-zinc-200 min-h-screen flex flex-col" x-data="nocApp()" x-init="initApp()" x-cloak>
 
-    <div class="fixed inset-0 z-0 bg-[url('/static/boot_logo.jpeg')] bg-cover bg-center bg-no-repeat opacity-40"></div>
-    <div class="fixed inset-0 z-0 bg-black/75 backdrop-blur-md"></div> 
+    <!-- LOADING SCREEN OVERLAY -->
+    <div x-show="isLoading" 
+         x-transition:leave="transition ease-in duration-700" 
+         x-transition:leave-start="opacity-100" 
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black">
+        <div class="absolute inset-0 bg-[url('/static/boot_logo.jpeg')] bg-cover bg-center opacity-20"></div>
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
+        
+        <div class="relative z-10 flex flex-col items-center animate-pulse">
+            <img src="/static/boot_logo.jpeg" class="w-32 h-32 md:w-40 md:h-40 rounded-full border-2 border-neon-green shadow-[0_0_40px_rgba(57,255,20,0.4)] mb-6 object-cover">
+            <h1 class="text-4xl md:text-6xl font-black text-white tracking-tighter drop-shadow-lg mb-2">
+                HACKNET <span class="text-neon-green">NOC</span>
+            </h1>
+            <p class="text-zinc-400 font-mono text-xs md:text-sm uppercase tracking-[0.3em] mb-12 font-bold">Your HomeLab, Monitored</p>
+            <div class="mt-8 text-zinc-600 font-mono text-[9px] md:text-[10px] uppercase tracking-widest font-bold">Created by CB456</div>
+        </div>
+    </div>
 
-    <!-- RESPONSIVE WRAPPER -->
-    <div id="noc-wrapper" class="relative z-10 p-4 md:p-8 flex flex-col" x-data="nocApp()" x-init="initApp()" x-cloak>
+    <!-- BACKGROUND -->
+    <div class="fixed inset-0 z-0 bg-[url('/static/boot_logo.jpeg')] bg-cover bg-center bg-no-repeat opacity-30"></div>
+    <div class="fixed inset-0 z-0 bg-black/85 backdrop-blur-xl"></div> 
+
+    <!-- MAIN DASHBOARD CONTENT -->
+    <div class="relative z-10 w-full flex-1 flex flex-col p-4 md:p-6 lg:p-8 xl:p-10 overflow-y-auto custom-scroll">
         
         <!-- HEADER -->
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 shrink-0 border-b border-zinc-800/80 pb-4 gap-4">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 md:mb-8 shrink-0 pb-2 gap-4">
             <div>
-                <h1 class="text-4xl md:text-5xl font-black text-white tracking-tighter drop-shadow-lg flex items-center gap-4">
+                <h1 class="text-3xl md:text-5xl lg:text-6xl font-black text-white tracking-tighter drop-shadow-lg flex items-center gap-4">
                     HACKNET <span class="text-neon-green">NOC</span>
-                    <span class="text-xs md:text-sm font-mono text-zinc-500 font-bold tracking-widest border border-zinc-700 bg-black px-3 py-1 rounded shadow-inner hidden sm:inline-block">V_2.7.ENT</span>
+                    <span class="text-xs md:text-sm font-mono text-zinc-500 font-bold tracking-widest border border-zinc-700 bg-black px-3 py-1 rounded shadow-inner hidden sm:inline-block">v2.7 Live</span>
                 </h1>
-                <div class="flex items-center gap-2 md:gap-4 mt-2 md:mt-3 text-xs md:text-sm font-mono text-zinc-400 font-bold uppercase tracking-widest">
+                <div class="flex items-center gap-2 md:gap-4 mt-2 md:mt-3 text-[10px] md:text-sm lg:text-base font-mono text-zinc-400 font-bold uppercase tracking-widest">
                     <span class="flex items-center gap-2">
                         <div class="w-2.5 h-2.5 rounded-full bg-neon-green animate-pulse" x-show="!isMuted"></div>
                         <div class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" x-show="isMuted"></div>
@@ -71,159 +105,275 @@
                     <span class="text-white" x-text="'TIME: ' + sysTime"></span>
                 </div>
             </div>
-            <a href="/admin" class="px-5 py-2.5 bg-black border border-zinc-800 hover:border-neon-green text-zinc-400 hover:text-neon-green rounded text-xs font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-2 z-20">
+            <a href="/admin" class="px-5 py-2.5 bg-black/50 border border-zinc-800 hover:border-neon-green text-zinc-400 hover:text-neon-green rounded text-xs lg:text-sm font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-2 z-20 backdrop-blur-md">
                 <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 Admin Console
             </a>
         </header>
 
-        <!-- GLOBAL HEALTH RIBBON -->
-        <div class="grid grid-cols-1 xl:grid-cols-12 gap-6 mb-6 shrink-0 xl:h-[140px]">
+        <!-- THE UNIFIED ENTERPRISE HUD -->
+        <div class="hud-panel rounded-xl mb-8 md:mb-10 shrink-0 flex flex-col xl:flex-row w-full z-20">
             
-            <div class="xl:col-span-3 glass-panel rounded-xl p-5 flex flex-col relative overflow-hidden min-h-[120px]" :class="wanStatus === 'stopped' ? 'status-pulse-red bg-red-950/40' : ''">
-                <div class="flex justify-between items-start z-10">
-                    <div>
-                        <h2 class="text-xs font-black text-zinc-500 tracking-widest uppercase">WAN Routing</h2>
-                        <div class="text-3xl font-black font-mono mt-1 drop-shadow-md" :class="wanStatus === 'stopped' ? 'text-red-500' : 'text-neon-green'" x-text="wanStatus === 'stopped' ? 'OFFLINE' : wanPing + ' ms'"></div>
+            <!-- PANEL 1: FLEET HEALTH -->
+            <div class="w-full xl:w-1/6 p-5 md:p-6 lg:p-8 border-b xl:border-b-0 xl:border-r border-zinc-800/80 flex flex-col justify-between">
+                <div>
+                    <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Fleet Health</h2>
+                    <div class="text-4xl lg:text-5xl 2xl:text-6xl font-black font-mono text-white drop-shadow-md mt-1 2xl:mt-3" x-text="fleetStatus.online + '/' + fleetStatus.totalActive"></div>
+                </div>
+                <div class="flex flex-col gap-2 mt-6 text-[10px] md:text-xs 2xl:text-sm font-mono font-bold uppercase tracking-widest">
+                    <div class="flex justify-between items-center text-red-500" x-show="fleetStatus.offline > 0">
+                        <span>Offline</span> <span x-text="fleetStatus.offline"></span>
+                    </div>
+                    <div class="flex justify-between items-center text-amber-500" x-show="fleetStatus.alerts > 0">
+                        <span>Alerts</span> <span x-text="fleetStatus.alerts"></span>
+                    </div>
+                    <div class="flex justify-between items-center text-neon-green" x-show="fleetStatus.offline === 0 && fleetStatus.alerts === 0">
+                        <span>Nominal</span> <span>OK</span>
+                    </div>
+                    <div class="flex justify-between items-center text-zinc-600 border-t border-zinc-800/80 pt-2 mt-1" x-show="fleetStatus.paused > 0">
+                        <span>Paused</span> <span x-text="fleetStatus.paused"></span>
                     </div>
                 </div>
-                <div class="flex-1 relative w-full -mb-3 -ml-3 -mr-3 mt-1 min-h-[50px]">
+            </div>
+
+            <!-- PANEL 2: WAN ROUTING -->
+            <div class="w-full xl:w-1/4 p-5 md:p-6 lg:p-8 border-b xl:border-b-0 xl:border-r border-zinc-800/80 flex flex-col relative overflow-hidden" :class="wanStatus === 'stopped' ? 'bg-red-950/20' : ''">
+                <div class="flex justify-between items-start z-10">
+                    <div>
+                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase" x-text="wanName"></h2>
+                        <div class="text-4xl lg:text-5xl 2xl:text-6xl font-black font-mono mt-1 2xl:mt-3 drop-shadow-md" :class="wanStatus === 'stopped' ? 'text-red-500' : 'text-neon-green'" x-text="wanStatus === 'stopped' ? 'OFFLINE' : wanPing + ' ms'"></div>
+                    </div>
+                </div>
+                <div class="flex-1 relative w-full -mb-5 -ml-5 -mr-5 mt-4 min-h-[80px] 2xl:min-h-[100px]">
                     <canvas id="wanChart"></canvas>
                 </div>
             </div>
 
-            <div class="xl:col-span-6 glass-panel rounded-xl p-5 flex flex-row justify-between items-center relative overflow-hidden min-h-[120px]" :class="hostStatus === 'stopped' ? 'status-pulse-red' : 'border-t border-t-zinc-700'">
-                <div class="flex flex-col justify-between h-full">
+            <!-- PANEL 3: HYPERVISOR CORE -->
+            <div class="flex-1 w-full xl:w-auto p-5 md:p-6 lg:p-8 border-b xl:border-b-0 xl:border-r border-zinc-800/80 flex flex-col justify-between relative overflow-hidden">
+                <div class="flex justify-between items-start w-full">
                     <div>
-                        <h2 class="text-xs font-black text-zinc-500 tracking-widest uppercase mb-1">Hypervisor Core</h2>
-                        <div class="text-xl md:text-2xl font-black text-white uppercase tracking-wider drop-shadow">CORE-PVE</div>
+                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Hypervisor Core</h2>
+                        <div class="text-2xl md:text-3xl lg:text-4xl 2xl:text-5xl font-black text-white uppercase tracking-wider drop-shadow" x-text="hostName"></div>
                     </div>
-                    <div class="mt-auto pt-2">
-                        <span class="text-[10px] font-mono font-black tracking-widest uppercase px-2 py-0.5 rounded border"
+                    <div class="text-right flex flex-col items-end">
+                        <span class="text-[9px] 2xl:text-xs font-mono font-black tracking-[0.1em] uppercase px-3 py-1 rounded border mb-2 shadow-inner"
                               :class="hostStatus === 'running' ? 'bg-[#39ff14]/10 text-neon-green border-neon-green/30' : 'bg-red-900/30 text-red-400 border-red-500/30'"
-                              x-text="hostStatus === 'stopped' ? 'CRITICAL OFFLINE' : 'SYSTEM NOMINAL'"></span>
+                              x-text="hostStatus === 'stopped' ? 'CRITICAL OFFLINE' : 'NOMINAL'"></span>
+                        <span class="text-[10px] lg:text-xs 2xl:text-sm font-mono text-zinc-400 font-bold uppercase tracking-widest" x-show="hostStatus === 'running'">UP: <span class="text-white" x-text="formatUptime(hostUptime)"></span></span>
                     </div>
                 </div>
                 
-                <div class="flex gap-4 md:gap-8" x-show="hostStatus === 'running'">
-                    <div class="flex flex-col items-center">
-                        <div class="dial w-16 h-16 md:w-20 md:h-20 bg-black mb-2 shadow-lg" :style="getDialGradient(hostCpu, getCpuColor(hostCpu, hostCpuThresh))">
-                            <span class="relative z-10 text-sm md:text-base font-mono font-bold text-white drop-shadow-md" x-text="Math.round(hostCpu) + '%'"></span>
+                <div class="flex flex-col md:flex-row justify-between items-center w-full mt-6 xl:mt-auto" x-show="hostStatus === 'running'">
+                    <!-- Dials scaled up for 2K displays -->
+                    <div class="flex gap-6 2xl:gap-10 w-full md:w-auto mb-4 md:mb-0 justify-center">
+                        <div class="flex flex-col items-center">
+                            <div class="dial w-16 h-16 lg:w-20 lg:h-20 2xl:w-24 2xl:h-24 bg-black mb-2.5 shadow-[0_5px_15px_rgba(0,0,0,0.5)] border border-zinc-900" :style="getDialGradient(hostCpu, getCpuColor(hostCpu, hostCpuThresh))">
+                                <span class="relative z-10 text-sm lg:text-base 2xl:text-xl font-mono font-bold text-white drop-shadow-md" x-text="Math.round(hostCpu) + '%'"></span>
+                            </div>
+                            <span class="text-[9px] lg:text-[10px] 2xl:text-xs font-black text-zinc-500 tracking-widest uppercase">CPU</span>
                         </div>
-                        <span class="text-[9px] md:text-[10px] font-black text-zinc-500 tracking-widest uppercase">CPU</span>
+                        <div class="flex flex-col items-center">
+                            <div class="dial w-16 h-16 lg:w-20 lg:h-20 2xl:w-24 2xl:h-24 bg-black mb-2.5 shadow-[0_5px_15px_rgba(0,0,0,0.5)] border border-zinc-900" :style="getDialGradient((hostMemUsed / Math.max(hostMemTotal, 1)) * 100, getRamColor((hostMemUsed / Math.max(hostMemTotal, 1)) * 100, hostMemThresh))">
+                                <span class="relative z-10 text-xs lg:text-sm 2xl:text-lg font-mono font-bold text-white drop-shadow-md" x-text="hostMemUsed.toFixed(1) + 'G'"></span>
+                            </div>
+                            <span class="text-[9px] lg:text-[10px] 2xl:text-xs font-black text-zinc-500 tracking-widest uppercase">RAM</span>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <div class="dial w-16 h-16 lg:w-20 lg:h-20 2xl:w-24 2xl:h-24 bg-black mb-2.5 shadow-[0_5px_15px_rgba(0,0,0,0.5)] border border-zinc-900" :style="getDialGradient((hostDiskUsed / Math.max(hostDiskTotal, 1)) * 100, getRamColor((hostDiskUsed / Math.max(hostDiskTotal, 1)) * 100, hostMemThresh))">
+                                <span class="relative z-10 text-sm lg:text-base 2xl:text-xl font-mono font-bold text-white drop-shadow-md" x-text="Math.round((hostDiskUsed / Math.max(hostDiskTotal, 1)) * 100) + '%'"></span>
+                            </div>
+                            <span class="text-[9px] lg:text-[10px] 2xl:text-xs font-black text-zinc-500 tracking-widest uppercase">ROOT</span>
+                        </div>
                     </div>
-                    <div class="flex flex-col items-center">
-                        <div class="dial w-16 h-16 md:w-20 md:h-20 bg-black mb-2 shadow-lg" :style="getDialGradient((hostMemUsed / Math.max(hostMemTotal, 1)) * 100, getRamColor((hostMemUsed / Math.max(hostMemTotal, 1)) * 100, hostMemThresh))">
-                            <span class="relative z-10 text-xs md:text-sm font-mono font-bold text-white drop-shadow-md" x-text="hostMemUsed.toFixed(1) + 'G'"></span>
+                    
+                    <!-- Network Stats scaled for legibility -->
+                    <div class="flex flex-col gap-2.5 text-right pb-1 w-full md:w-auto text-center md:text-right">
+                        <div class="flex items-center justify-center md:justify-end gap-2 text-xs lg:text-sm 2xl:text-base font-mono font-bold uppercase tracking-widest">
+                            <svg class="w-4 h-4 2xl:w-5 2xl:h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                            <span class="text-zinc-500">RX: <span class="text-white" x-text="hostRx"></span> Mbps</span>
                         </div>
-                        <span class="text-[9px] md:text-[10px] font-black text-zinc-500 tracking-widest uppercase">RAM</span>
+                        <div class="flex items-center justify-center md:justify-end gap-2 text-xs lg:text-sm 2xl:text-base font-mono font-bold uppercase tracking-widest">
+                            <svg class="w-4 h-4 2xl:w-5 2xl:h-5 text-fuchsia-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                            <span class="text-zinc-500">TX: <span class="text-white" x-text="hostTx"></span> Mbps</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="xl:col-span-3 glass-panel rounded-xl p-5 flex justify-between items-center relative overflow-hidden min-h-[120px]" :class="piholeActive ? '' : 'border-amber-500/50 bg-amber-950/30'">
-                <div class="flex flex-col justify-between h-full z-10">
+            <!-- PANEL 4: DNS SINKHOLE -->
+            <div class="w-full xl:w-1/4 p-5 md:p-6 lg:p-8 flex justify-between items-center relative overflow-hidden" :class="!piholeActive && pihole.queries_today === 0 ? 'bg-amber-950/20' : ''">
+                <div class="flex flex-col justify-between h-full z-10 w-full pr-4">
                     <div>
-                        <h2 class="text-xs font-black text-zinc-500 tracking-widest uppercase">DNS Sinkhole</h2>
-                        <div class="text-xl md:text-2xl font-black font-mono mt-1" :class="piholeActive ? 'text-neon-green' : 'text-amber-500'" x-text="piholeActive ? 'ACTIVE' : 'DEGRADED'"></div>
+                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase">DNS Sinkhole</h2>
+                        <div class="text-2xl lg:text-3xl 2xl:text-4xl font-black font-mono mt-1 2xl:mt-3" :class="piholeActive ? 'text-neon-green' : 'text-amber-500'" x-text="piholeActive ? 'ACTIVE' : 'DEGRADED'"></div>
                     </div>
-                    <div class="mt-auto font-mono text-sm space-y-1 pt-2">
-                        <div class="text-zinc-500 text-[10px] uppercase font-black tracking-widest">Total: <span class="text-white text-xs" x-text="(pihole.queries_today || 0).toLocaleString()"></span></div>
-                        <div class="text-zinc-500 text-[10px] uppercase font-black tracking-widest">Blocks: <span class="text-neon-green text-xs" x-text="(pihole.ads_blocked || 0).toLocaleString()"></span></div>
+                    <!-- Stats stacked nicely -->
+                    <div class="mt-auto font-mono space-y-3 pt-6">
+                        <div class="flex justify-between text-xs lg:text-sm 2xl:text-base uppercase font-black tracking-widest text-zinc-500">
+                            <span>Gravity:</span> <span class="text-white" x-text="(pihole.domains_blocked || 0).toLocaleString()"></span>
+                        </div>
+                        <div class="flex justify-between text-xs lg:text-sm 2xl:text-base uppercase font-black tracking-widest text-zinc-500">
+                            <span>Total:</span> <span class="text-white" x-text="(pihole.queries_today || 0).toLocaleString()"></span>
+                        </div>
+                        <div class="flex justify-between text-xs lg:text-sm 2xl:text-base uppercase font-black tracking-widest text-zinc-500">
+                            <span>Blocked:</span> <span class="text-neon-green" x-text="(pihole.ads_blocked || 0).toLocaleString()"></span>
+                        </div>
                     </div>
                 </div>
-                <div class="dial w-16 h-16 md:w-20 md:h-20 bg-black shadow-inner z-10 shrink-0 ml-4" :style="getDialGradient(pihole.ads_percentage || 0, '#39ff14')">
+                <div class="dial w-20 h-20 lg:w-24 lg:h-24 2xl:w-32 2xl:h-32 bg-black shadow-[0_5px_15px_rgba(0,0,0,0.5)] border border-zinc-900 z-10 shrink-0" :style="getDialGradient(pihole.ads_percentage || 0, '#39ff14')">
                     <div class="relative z-10 flex flex-col items-center justify-center">
-                        <span class="text-sm md:text-lg font-black font-mono text-white leading-none drop-shadow-md" x-text="Math.round(pihole.ads_percentage || 0) + '%'"></span>
+                        <span class="text-base lg:text-xl 2xl:text-2xl font-black font-mono text-white leading-none drop-shadow-md" x-text="Math.round(pihole.ads_percentage || 0) + '%'"></span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- INFRASTRUCTURE BENTO-GRID -->
-        <div class="flex-1 flex flex-col gap-6 min-h-0">
+        <!-- DYNAMIC ACTIVE ALERTS ROW -->
+        <div x-show="activeAlerts.length > 0" x-transition class="flex flex-col mb-8 md:mb-10 shrink-0 bg-red-950/30 p-5 rounded-xl border-t border-b border-red-900/50 shadow-[0_10px_30px_rgba(239,68,68,0.1)]">
+            <h3 class="text-xs md:text-sm font-black text-red-500 uppercase tracking-[0.25em] mb-5 flex items-center gap-2 alert-header">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                CRITICAL INFRASTRUCTURE ALERTS
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                <template x-for="t in activeAlerts" :key="'alert-' + t.entity_name">
+                    <div class="glass-panel rounded-xl p-6 flex flex-col justify-between transition-all min-h-[180px] relative overflow-hidden"
+                         :class="{ 'status-pulse-red bg-red-950/60 border-red-500/60': t.status === 'stopped', 'bg-black/95 border-zinc-700 shadow-xl': t.status === 'running' }">
+                        
+                        <div class="flex justify-between items-start mb-2 z-10">
+                            <div class="truncate w-full">
+                                <h4 class="font-black text-white text-lg md:text-xl uppercase tracking-wider truncate drop-shadow" x-text="t.entity_name"></h4>
+                                <div class="flex items-center gap-2 mt-1.5">
+                                    <div class="text-[10px] 2xl:text-xs font-mono font-black tracking-widest uppercase px-2 py-0.5 rounded inline-block border bg-red-900/30 text-red-400 border-red-500/30"
+                                         x-text="t.status === 'stopped' ? 'OFFLINE' : 'CAPACITY WARNING'"></div>
+                                    <div class="text-[9px] 2xl:text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest px-2 py-0.5 rounded bg-black/50 border border-zinc-700/50" x-text="t.location || 'LOCAL'"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div x-show="t.status === 'stopped'" class="flex-1 flex flex-col justify-center items-center bg-red-950/50 rounded-lg border border-red-500/30 mt-4 p-3 z-10">
+                            <div class="text-red-500 text-xs font-black uppercase tracking-widest mb-1.5">Failure</div>
+                            <div class="text-red-300 font-mono text-base font-bold" x-text="formatTime(t.down_since)"></div>
+                        </div>
+
+                        <div x-show="t.status === 'running'" class="flex justify-around items-end flex-1 pb-2 pt-4 z-10">
+                            <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
+                                <div class="flex flex-col items-center">
+                                    <div class="dial w-16 h-16 md:w-20 md:h-20 bg-black mb-2 shadow-lg border border-zinc-900" :style="getDialGradient(t.cpu_usage || 0, getCpuColor(t.cpu_usage, t.cpu_threshold))">
+                                        <span class="relative z-10 text-sm md:text-base font-mono font-bold text-white drop-shadow-md" x-text="Math.round(t.cpu_usage || 0) + '%'"></span>
+                                    </div>
+                                    <span class="text-[10px] md:text-xs font-black text-zinc-500 tracking-widest uppercase">CPU</span>
+                                </div>
+                            </template>
+
+                            <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
+                                <div class="flex flex-col items-center">
+                                    <div class="dial w-16 h-16 md:w-20 md:h-20 bg-black mb-2 shadow-lg border border-zinc-900" :style="getDialGradient((t.mem_used / Math.max(t.mem_total, 1)) * 100, getRamColor((t.mem_used / Math.max(t.mem_total, 1)) * 100, t.mem_threshold))">
+                                        <span class="relative z-10 text-xs md:text-sm font-mono font-bold text-white drop-shadow-md" x-text="(t.mem_used || 0).toFixed(1) + 'G'"></span>
+                                    </div>
+                                    <span class="text-[10px] md:text-xs font-black text-zinc-500 tracking-widest uppercase">RAM</span>
+                                </div>
+                            </template>
+
+                            <template x-if="t.entity_type === 'storage'">
+                                <div class="w-full flex flex-col justify-end h-full px-2">
+                                    <div class="flex justify-between items-end text-[10px] md:text-xs font-black text-zinc-500 uppercase tracking-widest mb-2">
+                                        <span>Usage</span>
+                                        <span class="text-xl font-mono leading-none text-red-500" x-text="((t.disk_used / Math.max(t.disk_total, 1)) * 100).toFixed(1) + '%'"></span>
+                                    </div>
+                                    <div class="w-full bg-black/60 rounded-full h-3 md:h-4 overflow-hidden border border-zinc-800 shadow-inner">
+                                        <div class="h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(239,68,68,0.4)] bg-red-500" 
+                                             :style="`width: ${(t.disk_used / Math.max(t.disk_total, 1)) * 100}%`"></div>
+                                    </div>
+                                    <div class="text-[10px] md:text-xs text-right font-mono font-bold text-zinc-400 mt-2" x-text="formatStorage(t.disk_used) + ' / ' + formatStorage(t.disk_total)"></div>
+                                </div>
+                            </template>
+                        </div>
+                        
+                        <div x-show="t.status === 'running' && getSparklinePoints(t)" class="absolute bottom-0 left-0 w-full h-20 opacity-30 pointer-events-none z-0">
+                            <svg class="w-full h-full" viewBox="0 0 100 30" preserveAspectRatio="none">
+                                <polyline fill="none" stroke="#ef4444" stroke-width="1.5" :points="getSparklinePoints(t)"></polyline>
+                            </svg>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- INFRASTRUCTURE BENTO-GRID (Nominal Sensors - Dimmed) -->
+        <div class="flex-1 flex flex-col gap-8 md:gap-10 min-h-0">
             <template x-for="category in categories" :key="category.id">
                 <div x-show="getFiltered(category.filter).length > 0" class="flex flex-col">
-                    <h3 class="text-[10px] font-black text-zinc-600 uppercase tracking-[0.25em] mb-3 border-b border-zinc-800/50 pb-2" x-text="category.title"></h3>
+                    <h3 class="text-xs lg:text-sm font-black text-zinc-600 uppercase tracking-[0.25em] mb-5 border-b border-zinc-800/30 pb-2" x-text="category.title"></h3>
                     
-                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
                         <template x-for="t in getFiltered(category.filter)" :key="t.entity_name">
-                            <div class="glass-panel rounded-xl p-4 flex flex-col justify-between transition-all min-h-[150px] relative overflow-hidden"
-                                 :class="{
-                                    'status-paused': t.is_enabled === 0,
-                                    'status-pulse-red bg-red-950/40': t.status === 'stopped' && t.is_enabled === 1
-                                 }">
+                            <div class="card-nominal rounded-xl p-5 md:p-6 flex flex-col justify-between transition-all min-h-[170px] relative overflow-hidden"
+                                 :class="t.is_enabled === 0 ? 'status-paused' : ''">
                                 
-                                <div class="flex justify-between items-start mb-1 z-10">
+                                <div class="flex justify-between items-start mb-2 z-10">
                                     <div class="truncate w-full">
-                                        <h4 class="font-black text-white text-base uppercase tracking-wider truncate drop-shadow" x-text="t.entity_name"></h4>
-                                        <div class="flex items-center gap-1.5 mt-0.5">
-                                            <div class="text-[9px] font-mono font-black tracking-widest uppercase px-1.5 py-0.5 rounded inline-block border"
-                                                 :class="t.status === 'running' ? 'bg-[#39ff14]/10 text-neon-green border-neon-green/30' : 'bg-red-900/30 text-red-400 border-red-500/30'"
-                                                 x-text="t.is_enabled === 0 ? 'PAUSED' : (t.status === 'stopped' ? 'OFFLINE' : 'ONLINE')"></div>
-                                            <div class="text-[8px] font-mono font-bold text-zinc-400 uppercase tracking-widest px-1.5 py-0.5 rounded bg-black/50 border border-zinc-700/50" x-text="t.location || 'LOCAL'"></div>
+                                        <h4 class="font-black text-white/90 text-lg md:text-xl uppercase tracking-wider truncate" x-text="t.entity_name"></h4>
+                                        <div class="flex items-center gap-2 mt-1.5">
+                                            <div class="text-[10px] 2xl:text-xs font-mono font-black tracking-widest uppercase px-2 py-0.5 rounded inline-block border"
+                                                 :class="t.is_enabled === 0 ? 'bg-zinc-900 border-zinc-700 text-zinc-500' : 'bg-[#39ff14]/5 text-neon-green/80 border-neon-green/20'"
+                                                 x-text="t.is_enabled === 0 ? 'PAUSED' : 'ONLINE'"></div>
+                                            <div class="text-[9px] 2xl:text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest px-2 py-0.5 rounded bg-black/40 border border-zinc-800/50" x-text="t.location || 'LOCAL'"></div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div x-show="t.status === 'stopped' && t.is_enabled === 1" class="flex-1 flex flex-col justify-center items-center bg-red-950/50 rounded-lg border border-red-500/30 mt-2 p-2 z-10">
-                                    <div class="text-red-500 text-[10px] font-black uppercase tracking-widest mb-1">Failure</div>
-                                    <div class="text-red-300 font-mono text-sm font-bold" x-text="formatTime(t.down_since)"></div>
-                                </div>
-
-                                <div x-show="t.status === 'running' && t.is_enabled === 1" class="flex justify-around items-end flex-1 pb-1 pt-2 z-10">
-                                    
+                                <div x-show="t.is_enabled === 1" class="flex justify-around items-end flex-1 pb-1 pt-4 z-10">
                                     <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
-                                        <div class="flex flex-col items-center">
-                                            <div class="dial w-12 h-12 bg-black mb-1 shadow-lg" :style="getDialGradient(t.cpu_usage || 0, getCpuColor(t.cpu_usage, t.cpu_threshold))">
-                                                <span class="relative z-10 text-xs font-mono font-bold text-white drop-shadow-md" x-text="Math.round(t.cpu_usage || 0) + '%'"></span>
+                                        <div class="flex flex-col items-center opacity-90">
+                                            <div class="dial w-14 h-14 md:w-16 md:h-16 2xl:w-20 2xl:h-20 bg-black/80 mb-2 border border-zinc-900 shadow-inner" :style="getDialGradient(t.cpu_usage || 0, getCpuColor(t.cpu_usage, t.cpu_threshold))">
+                                                <span class="relative z-10 text-xs md:text-sm 2xl:text-base font-mono font-bold text-white" x-text="Math.round(t.cpu_usage || 0) + '%'"></span>
                                             </div>
-                                            <span class="text-[9px] font-black text-zinc-500 tracking-widest uppercase">CPU</span>
+                                            <span class="text-[10px] md:text-xs font-black text-zinc-600 tracking-widest uppercase">CPU</span>
                                         </div>
                                     </template>
 
                                     <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
-                                        <div class="flex flex-col items-center">
-                                            <div class="dial w-12 h-12 bg-black mb-1 shadow-lg" :style="getDialGradient((t.mem_used / Math.max(t.mem_total, 1)) * 100, getRamColor((t.mem_used / Math.max(t.mem_total, 1)) * 100, t.mem_threshold))">
-                                                <span class="relative z-10 text-[10px] font-mono font-bold text-white drop-shadow-md" x-text="(t.mem_used || 0).toFixed(1) + 'G'"></span>
+                                        <div class="flex flex-col items-center opacity-90">
+                                            <div class="dial w-14 h-14 md:w-16 md:h-16 2xl:w-20 2xl:h-20 bg-black/80 mb-2 border border-zinc-900 shadow-inner" :style="getDialGradient((t.mem_used / Math.max(t.mem_total, 1)) * 100, getRamColor((t.mem_used / Math.max(t.mem_total, 1)) * 100, t.mem_threshold))">
+                                                <span class="relative z-10 text-[10px] md:text-xs 2xl:text-sm font-mono font-bold text-white" x-text="(t.mem_used || 0).toFixed(1) + 'G'"></span>
                                             </div>
-                                            <span class="text-[9px] font-black text-zinc-500 tracking-widest uppercase">RAM</span>
+                                            <span class="text-[10px] md:text-xs font-black text-zinc-600 tracking-widest uppercase">RAM</span>
                                         </div>
                                     </template>
 
                                     <template x-if="t.entity_type === 'storage'">
-                                        <div class="w-full flex flex-col justify-end h-full px-1">
-                                            <div class="flex justify-between items-end text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">
+                                        <div class="w-full flex flex-col justify-end h-full px-2 opacity-90">
+                                            <div class="flex justify-between items-end text-[10px] md:text-xs font-black text-zinc-600 uppercase tracking-widest mb-2">
                                                 <span>Usage</span>
-                                                <span class="text-lg font-mono leading-none" :style="`color: ${getRamColor((t.disk_used / Math.max(t.disk_total, 1)) * 100, t.mem_threshold)}`" x-text="((t.disk_used / Math.max(t.disk_total, 1)) * 100).toFixed(1) + '%'"></span>
+                                                <span class="text-xl 2xl:text-2xl font-mono leading-none" :style="`color: ${getRamColor((t.disk_used / Math.max(t.disk_total, 1)) * 100, t.mem_threshold)}`" x-text="((t.disk_used / Math.max(t.disk_total, 1)) * 100).toFixed(1) + '%'"></span>
                                             </div>
-                                            <div class="w-full bg-black/60 rounded-full h-2.5 overflow-hidden border border-zinc-800 shadow-inner">
-                                                <div class="h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(255,255,255,0.2)]" 
+                                            <div class="w-full bg-black/80 rounded-full h-3 md:h-4 overflow-hidden border border-zinc-900 shadow-inner">
+                                                <div class="h-full rounded-full transition-all duration-1000" 
                                                      :style="`width: ${(t.disk_used / Math.max(t.disk_total, 1)) * 100}%; background: ${getRamColor((t.disk_used / Math.max(t.disk_total, 1)) * 100, t.mem_threshold)}`"></div>
                                             </div>
-                                            <div class="text-[9px] text-right font-mono font-bold text-zinc-400 mt-1.5" x-text="formatStorage(t.disk_used) + ' / ' + formatStorage(t.disk_total)"></div>
+                                            <div class="text-[10px] md:text-xs text-right font-mono font-bold text-zinc-500 mt-2" x-text="formatStorage(t.disk_used) + ' / ' + formatStorage(t.disk_total)"></div>
                                         </div>
                                     </template>
 
                                     <template x-if="t.entity_type === 'network'">
-                                        <div class="w-full bg-black/60 rounded py-2 border border-zinc-800/50 flex flex-col items-center justify-center h-full shadow-inner">
-                                            <span class="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1">Latency</span>
-                                            <span class="text-xl font-mono font-black text-neon-green drop-shadow" x-text="(t.ping_ms || 0).toFixed(0) + 'ms'"></span>
+                                        <div class="w-full bg-black/40 rounded py-4 border border-zinc-800/30 flex flex-col items-center justify-center h-full shadow-inner opacity-90">
+                                            <span class="text-[10px] md:text-xs font-black text-zinc-600 uppercase tracking-widest mb-1.5">Latency</span>
+                                            <span class="text-3xl 2xl:text-4xl font-mono font-black text-neon-green/90" x-text="(t.ping_ms || 0).toFixed(0) + 'ms'"></span>
                                         </div>
                                     </template>
 
                                     <template x-if="t.entity_type === 'app'">
-                                        <div class="w-full bg-black/60 rounded py-2 border border-zinc-800/50 flex flex-col items-center justify-center h-full shadow-inner">
-                                            <span class="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1">TCP Port</span>
-                                            <span class="text-sm font-mono font-black text-neon-purple uppercase tracking-widest">ACTIVE</span>
+                                        <div class="w-full bg-black/40 rounded py-4 border border-zinc-800/30 flex flex-col items-center justify-center h-full shadow-inner opacity-90">
+                                            <span class="text-[10px] md:text-xs font-black text-zinc-600 uppercase tracking-widest mb-1.5">TCP Port</span>
+                                            <span class="text-lg 2xl:text-xl font-mono font-black text-neon-purple/90 uppercase tracking-widest">ACTIVE</span>
                                         </div>
                                     </template>
                                 </div>
                                 
-                                <!-- Background Sparkline (10m History) -->
-                                <div x-show="t.status === 'running' && t.is_enabled === 1 && getSparklinePoints(t)" class="absolute bottom-0 left-0 w-full h-12 opacity-30 pointer-events-none z-0">
+                                <div x-show="t.is_enabled === 1 && getSparklinePoints(t)" class="absolute bottom-0 left-0 w-full h-16 opacity-15 pointer-events-none z-0">
                                     <svg class="w-full h-full" viewBox="0 0 100 30" preserveAspectRatio="none">
-                                        <polyline fill="none" :stroke="t.entity_type === 'network' ? '#39ff14' : '#b026ff'" stroke-width="1.5" :points="getSparklinePoints(t)"></polyline>
+                                        <polyline fill="none" :stroke="t.entity_type === 'network' ? '#39ff14' : 'rgba(255,255,255,0.4)'" stroke-width="1.5" :points="getSparklinePoints(t)"></polyline>
                                     </svg>
                                 </div>
                             </div>
@@ -235,50 +385,32 @@
     </div>
 
     <script>
-        function initScaler() {
-            const wrapper = document.getElementById('noc-wrapper');
-            const scaleApp = () => {
-                if (window.innerWidth >= 1280) { 
-                    document.body.style.overflow = 'hidden';
-                    wrapper.style.position = 'absolute';
-                    wrapper.style.width = '1920px';
-                    wrapper.style.height = '1080px';
-                    const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
-                    wrapper.style.transform = `scale(${scale})`;
-                    wrapper.style.left = `${(window.innerWidth - (1920 * scale)) / 2}px`;
-                    wrapper.style.top = `${(window.innerHeight - (1080 * scale)) / 2}px`;
-                } else { 
-                    document.body.style.overflow = 'auto';
-                    wrapper.style.position = 'relative';
-                    wrapper.style.width = '100%';
-                    wrapper.style.height = 'auto';
-                    wrapper.style.transform = 'none';
-                    wrapper.style.left = '0';
-                    wrapper.style.top = '0';
-                }
-            };
-            window.addEventListener('resize', scaleApp);
-            scaleApp();
-        }
-        document.addEventListener("DOMContentLoaded", initScaler);
-
         function nocApp() {
             return {
+                isLoading: true,
                 targets: [],
                 sparklines: {},
                 pihole: {},
                 piholeActive: false,
                 sysTime: '--:--:--',
                 isMuted: false,
-                wanPing: 0,
-                wanStatus: 'stopped',
                 
+                hostName: 'NO HOST',
                 hostStatus: 'stopped',
                 hostCpu: 0,
                 hostMemUsed: 0,
                 hostMemTotal: 1,
+                hostDiskUsed: 0,
+                hostDiskTotal: 1,
                 hostCpuThresh: 90.0,
                 hostMemThresh: 90.0,
+                hostRx: '0.0',
+                hostTx: '0.0',
+                hostUptime: 0,
+
+                wanName: 'WAN ROUTING',
+                wanPing: 0,
+                wanStatus: 'stopped',
 
                 chartObj: null,
 
@@ -314,8 +446,13 @@
                         }
                     });
 
-                    this.fetchData();
-                    setInterval(() => this.fetchData(), 10000);
+                    const minLoadTime = new Promise(resolve => setTimeout(resolve, 1500));
+                    const dataLoad = this.fetchData();
+                    
+                    Promise.all([minLoadTime, dataLoad]).then(() => {
+                        this.isLoading = false;
+                        setInterval(() => this.fetchData(), 10000);
+                    });
                 },
 
                 async fetchData() {
@@ -331,20 +468,34 @@
                             this.piholeActive = ['enabled', 'active', 'blocking'].includes(ps) || (this.pihole.queries_today > 0);
                             this.isMuted = (json.settings && json.settings.global_mute === '1');
 
-                            const host = this.targets.find(t => t.entity_name === 'CORE-PVE');
+                            const host = this.targets.find(t => t.entity_type === 'host');
                             if (host) {
+                                this.hostName = host.entity_name;
                                 this.hostStatus = host.status;
                                 this.hostCpu = host.cpu_usage || 0;
                                 this.hostMemUsed = host.mem_used || 0;
                                 this.hostMemTotal = host.mem_total || 1;
+                                this.hostDiskUsed = host.disk_used || 0;
+                                this.hostDiskTotal = host.disk_total || 1;
                                 this.hostCpuThresh = host.cpu_threshold || 90.0;
                                 this.hostMemThresh = host.mem_threshold || 90.0;
+                                this.hostRx = (host.net_in || 0).toFixed(1);
+                                this.hostTx = (host.net_out || 0).toFixed(1);
+                                this.hostUptime = parseInt(json.settings.host_uptime || 0);
+                            } else {
+                                this.hostName = 'NO HOST';
+                                this.hostStatus = 'stopped';
                             }
 
-                            const wan = this.targets.find(t => t.entity_name === 'WAN_DNS');
+                            const wan = this.targets.find(t => t.entity_type === 'network' && (t.entity_name || '').toUpperCase().includes('WAN'));
                             if (wan) {
+                                this.wanName = wan.entity_name;
                                 this.wanPing = (wan.ping_ms || 0).toFixed(0);
                                 this.wanStatus = wan.status;
+                            } else {
+                                this.wanName = 'WAN ROUTING';
+                                this.wanPing = 0;
+                                this.wanStatus = 'stopped';
                             }
                             
                             if (json.wan_history && json.wan_history.length > 0) {
@@ -358,8 +509,51 @@
                     } catch (e) {}
                 },
 
+                isActiveAlert(t) {
+                    if (t.is_enabled === 0) return false;
+                    if (t.entity_type === 'host') return false;
+                    if (t.entity_type === 'network' && (t.entity_name || '').toUpperCase().includes('WAN')) return false;
+
+                    if (t.status === 'stopped') return true;
+                    
+                    const cpuThresh = t.cpu_threshold || 90.0;
+                    const memThresh = t.mem_threshold || 90.0;
+                    
+                    if (['vm', 'lxc', 'game'].includes(t.entity_type)) {
+                        if ((t.cpu_usage || 0) >= cpuThresh) return true;
+                        const ramPct = ((t.mem_used || 0) / Math.max(t.mem_total || 1, 1)) * 100;
+                        if (ramPct >= memThresh) return true;
+                    }
+                    
+                    if (t.entity_type === 'storage') {
+                        const diskPct = ((t.disk_used || 0) / Math.max(t.disk_total || 1, 1)) * 100;
+                        if (diskPct >= memThresh) return true;
+                    }
+                    
+                    return false;
+                },
+
+                get fleetStatus() {
+                    const activeTargets = this.targets.filter(t => t.is_enabled === 1);
+                    const totalActive = activeTargets.length;
+                    const online = activeTargets.filter(t => t.status === 'running').length;
+                    const offline = activeTargets.filter(t => t.status === 'stopped').length;
+                    const paused = this.targets.filter(t => t.is_enabled === 0).length;
+                    const alerts = this.activeAlerts.length;
+                    return { totalActive, online, offline, paused, alerts };
+                },
+
+                get activeAlerts() {
+                    return this.targets.filter(t => this.isActiveAlert(t));
+                },
+
                 getFiltered(types) {
-                    return this.targets.filter(t => types.includes(t.entity_type) && !['WAN_DNS', 'CORE-PVE'].includes(t.entity_name));
+                    return this.targets.filter(t => 
+                        types.includes(t.entity_type) && 
+                        t.entity_type !== 'host' && 
+                        !(t.entity_type === 'network' && (t.entity_name || '').toUpperCase().includes('WAN')) &&
+                        !this.isActiveAlert(t)
+                    );
                 },
 
                 getSparklinePoints(t) {
@@ -382,6 +576,15 @@
                     if (gb >= 1000) return (gb / 1024).toFixed(2) + 'T';
                     return gb.toFixed(1) + 'G';
                 },
+                
+                formatUptime(seconds) {
+                    if (!seconds || seconds == 0) return '0h 0m';
+                    const d = Math.floor(seconds / 86400);
+                    const h = Math.floor((seconds % 86400) / 3600);
+                    const m = Math.floor((seconds % 3600) / 60);
+                    if (d > 0) return `${d}d ${h}h`;
+                    return `${h}h ${m}m`;
+                },
 
                 getCpuColor(val, threshold = 90.0) {
                     if (val >= threshold) return '#ef4444'; 
@@ -392,7 +595,7 @@
                 getRamColor(val, threshold = 90.0) {
                     if (val >= threshold) return '#ef4444'; 
                     if (val >= (threshold * 0.8)) return '#f59e0b'; 
-                    return '#b026ff'; 
+                    return '#39ff14'; 
                 },
 
                 getDialGradient(percent, color) {
@@ -413,4 +616,17 @@
     </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
 
