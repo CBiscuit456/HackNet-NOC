@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HackNet NOC - Initial Setup</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@400;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #000000; color: #e4e4e7; overflow-x: hidden; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .glass-panel { background: rgba(10, 10, 10, 0.85); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8); }
+        .text-neon-green { color: #39ff14; }
+        .dark-input { background-color: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); color: white; transition: all 0.2s; }
+        .dark-input:focus { outline: none; border-color: #39ff14; box-shadow: 0 0 10px rgba(57, 255, 20, 0.2); }
+        .plugin-card { transition: all 0.2s ease; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+        .plugin-card:hover { border-color: rgba(255,255,255,0.3); }
+        .plugin-active { border-color: #39ff14 !important; background: rgba(57,255,20,0.05); }
+        .tooltip-text { font-size: 10px; color: #a1a1aa; font-family: 'JetBrains Mono', monospace; margin-top: 4px; display: block; }
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 relative" x-data="setupWizard()" x-init="checkStatus()" x-cloak>
+    <div class="fixed inset-0 z-0 bg-[url('/static/boot_logo.jpeg')] bg-cover bg-center opacity-30"></div>
+    <div class="fixed inset-0 z-0 bg-black/80 backdrop-blur-md"></div>
+
+    <div class="relative z-10 w-full max-w-4xl glass-panel rounded-xl shadow-2xl overflow-hidden border-t-4 border-neon-green flex flex-col max-h-[95vh]">
+        <div class="p-6 border-b border-zinc-800 bg-black/50 text-center shrink-0">
+            <h1 class="text-3xl font-black text-white tracking-tighter uppercase">HACKNET <span class="text-neon-green">NOC</span></h1>
+            <p class="text-zinc-400 font-mono text-[10px] mt-1 uppercase tracking-[0.3em] font-bold">System Initialization</p>
+            <div class="w-full max-w-md mx-auto mt-6 bg-zinc-900 rounded-full h-1.5 flex">
+                <div class="h-full bg-neon-green transition-all duration-500 shadow-[0_0_10px_rgba(57,255,20,0.8)]" :style="`width: ${(step / 4) * 100}%`"></div>
+            </div>
+        </div>
+
+        <div class="p-6 md:p-8 flex-1 overflow-y-auto custom-scroll">
+            
+            <!-- STEP 1: AUTHENTICATION / CREATION -->
+            <div x-show="step === 1">
+                <h2 class="text-xl font-black text-white uppercase tracking-widest mb-2" x-text="adminExists ? 'Authenticate' : 'Create Master Password'"></h2>
+                <p class="text-sm text-zinc-400 mb-6" x-text="adminExists ? 'Enter your Master Password to modify configurations.' : 'Welcome to HackNet. Please secure your instance. This password will encrypt your API keys and lock the admin panel.'"></p>
+                
+                <div class="bg-black/40 border border-zinc-800 p-5 rounded-lg max-w-md mx-auto">
+                    <div x-show="!adminExists" class="mb-4">
+                        <input type="password" x-model="newPassword" placeholder="Create Password (min 8 chars)" class="dark-input w-full rounded p-3 font-mono text-center mb-3">
+                        <input type="password" x-model="confirmPassword" @keyup.enter="createAdmin()" placeholder="Confirm Password" class="dark-input w-full rounded p-3 font-mono text-center">
+                    </div>
+                    <div x-show="adminExists">
+                        <input type="password" x-model="adminKey" @keyup.enter="validateAuth()" placeholder="Enter Master Password" class="dark-input w-full rounded p-3 font-mono text-center">
+                    </div>
+                    <div x-show="authError" class="text-red-500 text-xs mt-3 font-bold text-center uppercase tracking-wider" x-text="authError"></div>
+                </div>
+                
+                <div class="mt-8 flex justify-end">
+                    <button x-show="!adminExists" @click="createAdmin()" class="px-6 py-2.5 bg-[#39ff14]/20 text-[#39ff14] border border-[#39ff14]/50 rounded font-black uppercase text-xs hover:bg-[#39ff14] hover:text-black transition-all">Secure Instance</button>
+                    <button x-show="adminExists" @click="validateAuth()" class="px-6 py-2.5 bg-[#39ff14]/20 text-[#39ff14] border border-[#39ff14]/50 rounded font-black uppercase text-xs hover:bg-[#39ff14] hover:text-black transition-all">Login</button>
+                </div>
+            </div>
+
+            <!-- STEP 2: CORE NETWORK (WAN) -->
+            <div x-show="step === 2" style="display: none;">
+                <h2 class="text-xl font-black text-white uppercase tracking-widest mb-2">Network Core</h2>
+                <p class="text-sm text-zinc-400 mb-6">How does HackNet NOC know if your internet is offline? Define a highly available external gateway.</p>
+                
+                <div class="bg-black/30 border border-zinc-800 p-6 rounded-lg max-w-2xl mx-auto space-y-5">
+                    <div>
+                        <label class="block text-xs font-black text-white uppercase mb-1">Target IP or FQDN</label>
+                        <input type="text" x-model="wanTarget" placeholder="e.g. 1.1.1.1 or google.com" class="dark-input w-full rounded p-3 font-mono text-sm">
+                        <span class="tooltip-text">Recommendation: Use your ISP Gateway IP, or a reliable DNS provider like Cloudflare (1.1.1.1).</span>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-black text-white uppercase mb-1">Display Name</label>
+                        <input type="text" x-model="wanName" placeholder="e.g. WAN Routing" class="dark-input w-full rounded p-3 font-mono text-sm">
+                        <span class="tooltip-text">How this connection will be labeled on your dashboard.</span>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex justify-end">
+                    <button @click="step = 3" class="px-6 py-2.5 bg-[#39ff14]/20 text-[#39ff14] border border-[#39ff14]/50 rounded font-black uppercase text-xs hover:bg-[#39ff14] hover:text-black transition-all">Next Step</button>
+                </div>
+            </div>
+
+            <!-- STEP 3: INTEGRATIONS & API TESTING -->
+            <div x-show="step === 3" style="display: none;">
+                <h2 class="text-xl font-black text-white uppercase tracking-widest mb-2">Integrations</h2>
+                <p class="text-sm text-zinc-400 mb-6">Select the modules running in your homelab. Test their connections before deploying.</p>
+                
+                <!-- Plugin Toggles Grid -->
+                <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-8 border-b border-zinc-800/50 pb-6">
+                    <div @click="togglePlugin('proxmox')" class="plugin-card p-3 rounded flex flex-col items-center" :class="plugins.proxmox.enabled ? 'plugin-active' : ''">
+                        <div class="font-black text-white text-xs uppercase tracking-wider">Proxmox</div>
+                        <div class="text-[9px] text-zinc-500 font-mono">Hypervisor</div>
+                    </div>
+                    <div @click="togglePlugin('esxi')" class="plugin-card p-3 rounded flex flex-col items-center" :class="plugins.esxi.enabled ? 'plugin-active' : ''">
+                        <div class="font-black text-white text-xs uppercase tracking-wider">VMware ESXi</div>
+                        <div class="text-[9px] text-zinc-500 font-mono">Hypervisor</div>
+                    </div>
+                    <div @click="togglePlugin('truenas')" class="plugin-card p-3 rounded flex flex-col items-center" :class="plugins.truenas.enabled ? 'plugin-active' : ''">
+                        <div class="font-black text-white text-xs uppercase tracking-wider">TrueNAS</div>
+                        <div class="text-[9px] text-zinc-500 font-mono">Storage Array</div>
+                    </div>
+                    <div @click="togglePlugin('pterodactyl')" class="plugin-card p-3 rounded flex flex-col items-center" :class="plugins.pterodactyl.enabled ? 'plugin-active' : ''">
+                        <div class="font-black text-white text-xs uppercase tracking-wider">Pterodactyl</div>
+                        <div class="text-[9px] text-zinc-500 font-mono">Game Panel</div>
+                    </div>
+                    <div @click="togglePlugin('pihole')" class="plugin-card p-3 rounded flex flex-col items-center" :class="plugins.pihole.enabled ? 'plugin-active' : ''">
+                        <div class="font-black text-white text-xs uppercase tracking-wider">Pi-Hole</div>
+                        <div class="text-[9px] text-zinc-500 font-mono">DNS Sinkhole</div>
+                    </div>
+                    <div @click="togglePlugin('plex')" class="plugin-card p-3 rounded flex flex-col items-center" :class="plugins.plex.enabled ? 'plugin-active' : ''">
+                        <div class="font-black text-white text-xs uppercase tracking-wider">Plex</div>
+                        <div class="text-[9px] text-zinc-500 font-mono">Media Server</div>
+                    </div>
+                </div>
+
+                <div x-show="!hasAnyPlugin()" class="text-center py-10 border border-zinc-800/50 rounded bg-black/20 text-zinc-500 font-mono text-xs uppercase tracking-widest">
+                    No plugins selected. You can proceed to build a manual dashboard.
+                </div>
+
+                <div class="space-y-4">
+                    <!-- PROXMOX -->
+                    <div x-show="plugins.proxmox.enabled" class="p-4 border border-zinc-800 rounded bg-black/30">
+                        <h3 class="text-xs font-black text-white uppercase tracking-widest mb-3">Proxmox VE</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div><label class="block text-[10px] text-zinc-500 font-black mb-1 uppercase tracking-wider">IP / FQDN</label><input type="text" x-model="plugins.proxmox.data.ip" placeholder="10.10.x.x" class="dark-input w-full rounded p-2 text-sm font-mono"></div>
+                            <div><label class="block text-[10px] text-zinc-500 font-black mb-1 uppercase tracking-wider">Token ID</label><input type="text" x-model="plugins.proxmox.data.token_id" placeholder="root@pam!noc" class="dark-input w-full rounded p-2 text-sm font-mono"></div>
+                            <div><label class="block text-[10px] text-zinc-500 font-black mb-1 uppercase tracking-wider">Token Secret</label><input type="password" x-model="plugins.proxmox.data.token_secret" class="dark-input w-full rounded p-2 text-sm font-mono"></div>
+                        </div>
+                        <span class="tooltip-text mb-3">Requires a Proxmox API Token. Uncheck "Privilege Separation" when creating the token in the Proxmox UI.</span>
+                        <div class="flex items-center justify-between border-t border-zinc-800/80 pt-3">
+                            <button @click="testConnection('proxmox')" class="text-[10px] uppercase tracking-widest font-black px-4 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-white transition-colors">Test Connection</button>
+                            <span class="text-[10px] font-mono font-bold tracking-widest uppercase" :class="{'text-neon-green': plugins.proxmox.testStatus === 'success', 'text-red-500': plugins.proxmox.testStatus === 'error', 'text-amber-500': plugins.proxmox.testStatus === 'testing'}" x-text="plugins.proxmox.testMessage"></span>
+                        </div>
+                    </div>
+
+                    <!-- ESXI -->
+                    <div x-show="plugins.esxi.enabled" class="p-4 border border-zinc-800 rounded bg-black/30">
+                        <h3 class="text-xs font-black text-white uppercase tracking-widest mb-3">VMware ESXi</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div><label class="block text-[10px] text-zinc-500 font-black mb-1 uppercase tracking-wider">IP / FQDN</label><input type="text" x-model="plugins.esxi.data.ip" placeholder="10.10.x.x" class="dark-input w-full rounded p-2 text-sm font-mono"></div>
+                            <div><label class="block text-[10px] text-zinc-500 font-black mb-1 uppercase tracking-wider">Username</label><input type="text" x-model="plugins.esxi.data.user" placeholder="root" class="dark-input w-full rounded p-2 text-sm font-mono"></div>
+                            <div><label class="block text-[10px] text-zinc-500 font-black mb-1 uppercase tracking-wider">Password</label><input type="password" x-model="plugins.esxi.data.password" class="dark-input w-full rounded p-2 text-sm font-mono"></div>
+                        </div>
+                        <span class="tooltip-text mb-3">Requires vSphere REST API enabled on the host/vCenter.</span>
+                        <div class="flex items-center justify-between border-t border-zinc-800/80 pt-3">
+                            <button @click="testConnection('esxi')" class="text-[10px] uppercase tracking-widest font-black px-4 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-white transition-colors">Test Connection</button>
+                            <span class="text-[10px] font-mono font-bold tracking-widest uppercase" :class="{'text-neon-green': plugins.esxi.testStatus === 'success', 'text-red-500': plugins.esxi.testStatus === 'error', 'text-amber-500': plugins.esxi.testStatus === 'testing'}" x-text="plugins.esxi.testMessage"></span>
+                        </div>
+                    </div>
+
+                    <!-- TRUENAS -->
+                    <div x-show="plugins.truenas.enabled" class="p-4 border border-zinc-800 rounded bg-black/30">
+                        <h3 class="text-xs font-black text-white uppercase tracking-widest mb-3">TrueNAS</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="block text-[10px] text-zinc-500 font-black mb-1 uppercase tracking-wider">IP / FQDN</label><input type="text" x-model="plugins.truenas.data.ip" placeholder="10.10.x.x" class="dark-input w-full rounded p-2 text-sm font-mono"></div>
+                            <div><label class="block text-[10px] text-zinc-500 font-black mb-1 uppercase tracking-wider">API Token</label><input type="password" x-model="plugins.truenas.data.token" class="dark-input w-full rounded p-2 text-sm font-mono"></div>
+                        </div>
+                        <span class="tooltip-text mb-3">Generate a Bearer Token via the TrueNAS Scale/Core Web UI.</span>
+                        <div class="flex items-center justify-between border-t border-zinc-800/80 pt-3">
+                            <button @click="testConnection('truenas')" class="text-[10px] uppercase tracking-widest font-black px-4 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-white transition-colors">Test Connection</button>
+                            <span class="text-[10px] font-mono font-bold tracking-widest uppercase" :class="{'text-neon-green': plugins.truenas.testStatus === 'success', 'text-red-500': plugins.truenas.testStatus === 'error', 'text-amber-500': plugins.truenas.testStatus === 'testing'}" x-text="plugins.truenas.testMessage"></span>
+                        </div>
+                    </div>
+
+                    <!-- PTERODACTYL -->
+                    <div x-show="plugins.pterodactyl.enabled" class="p-4 border border-zinc-800 rounded bg-black/30">
+                        <h3 class="text-xs font-black text-white uppercase tracking-widest mb-3">Pterodactyl</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="block text-[10px] text-zinc-500 font-black mb-1 uppercase tracking-wider">Panel URL</label><input type="text" x-model="plugins.pterodactyl.data.url" placeholder="https://panel.example.com" class="dark-input w-full rounded p-2 text-sm font-mono"></div>
+                            <div><label class="block text-[10px] text-zinc-500 font-black mb-1 uppercase tracking-wider">Client API Key</label><input type="password" x-model="plugins.pterodactyl.data.token" placeholder="ptlc_..." class="dark-input w-full rounded p-2 text-sm font-mono"></div>
+                        </div>
+                        <span class="tooltip-text mb-3">Generate a "Client API Key" inside your Pterodactyl Account Settings, NOT an Application Key.</span>
+                        <div class="flex items-center justify-between border-t border-zinc-800/80 pt-3">
+                            <button @click="testConnection('pterodactyl')" class="text-[10px] uppercase tracking-widest font-black px-4 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-white transition-colors">Test Connection</button>
+                            <span class="text-[10px] font-mono font-bold tracking-widest uppercase" :class="{'text-neon-green': plugins.pterodactyl.testStatus === 'success', 'text-red-500': plugins.pterodactyl.testStatus === 'error', 'text-amber-500': plugins.pterodactyl.testStatus === 'testing'}" x-text="plugins.pterodactyl.testMessage"></span>
+                        </div>
+                    </div>
+
+                    <!-- PI-HOLE -->
+                    <div x-show="plugins.pihole.enabled" class="p-4 border border-zinc-800 rounded bg-black/30">
+                        <h3 class="text-xs font-black text-white uppercase tracking-widest mb-3">Pi-Hole</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="block text-[10px] text-zinc-500 font-black mb-1 uppercase tracking-wider">IP Address</label><input type="text" x-model="plugins.pihole.data.ip" placeholder="10.10.x.x" class="dark-input w-full rounded p-2 text-sm font-mono"></div>
+                            <div><label class="block text-[10px] text-zinc-500 font-black mb-1 uppercase tracking-wider">App Password</label><input type="password" x-model="plugins.pihole.data.app_password" placeholder="Optional if not secured" class="dark-input w-full rounded p-2 text-sm font-mono"></div>
+                        </div>
+                        <div class="flex items-center justify-between border-t border-zinc-800/80 mt-3 pt-3">
+                            <button @click="testConnection('pihole')" class="text-[10px] uppercase tracking-widest font-black px-4 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-white transition-colors">Test Connection</button>
+                            <span class="text-[10px] font-mono font-bold tracking-widest uppercase" :class="{'text-neon-green': plugins.pihole.testStatus === 'success', 'text-red-500': plugins.pihole.testStatus === 'error', 'text-amber-500': plugins.pihole.testStatus === 'testing'}" x-text="plugins.pihole.testMessage"></span>
+                        </div>
+                    </div>
+
+                    <!-- PLEX -->
+                    <div x-show="plugins.plex.enabled" class="p-4 border border-zinc-800 rounded bg-black/30">
+                        <h3 class="text-xs font-black text-white uppercase tracking-widest mb-3">Plex Media Server</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="block text-[10px] text-zinc-500 font-black mb-1 uppercase tracking-wider">Server URL</label><input type="text" x-model="plugins.plex.data.url" placeholder="http://10.10.x.x:32400" class="dark-input w-full rounded p-2 text-sm font-mono"></div>
+                            <div><label class="block text-[10px] text-zinc-500 font-black mb-1 uppercase tracking-wider">X-Plex-Token</label><input type="password" x-model="plugins.plex.data.token" class="dark-input w-full rounded p-2 text-sm font-mono"></div>
+                        </div>
+                        <div class="flex items-center justify-between border-t border-zinc-800/80 mt-3 pt-3">
+                            <button @click="testConnection('plex')" class="text-[10px] uppercase tracking-widest font-black px-4 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-white transition-colors">Test Connection</button>
+                            <span class="text-[10px] font-mono font-bold tracking-widest uppercase" :class="{'text-neon-green': plugins.plex.testStatus === 'success', 'text-red-500': plugins.plex.testStatus === 'error', 'text-amber-500': plugins.plex.testStatus === 'testing'}" x-text="plugins.plex.testMessage"></span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="mt-8 flex justify-between">
+                    <button @click="step = 2" class="px-6 py-2.5 text-zinc-400 font-black uppercase text-xs hover:text-white transition-colors">Back</button>
+                    <button @click="prepareStep4()" class="px-6 py-2.5 bg-[#39ff14]/20 text-[#39ff14] border border-[#39ff14]/50 rounded font-black uppercase text-xs hover:bg-[#39ff14] hover:text-black transition-all">Next Step</button>
+                </div>
+            </div>
+
+            <!-- STEP 4: PRIORITY & ALERTS -->
+            <div x-show="step === 4" style="display: none;">
+                <h2 class="text-xl font-black text-white uppercase tracking-widest mb-2">Priority & Alerts</h2>
+                <p class="text-sm text-zinc-400 mb-6">Define what fills your massive Top Command Bar, and where alerts should route.</p>
+
+                <div class="p-4 border border-zinc-800 rounded bg-black/30 mb-6">
+                    <h3 class="text-xs font-black text-white uppercase tracking-widest mb-3 text-neon-purple">Mission Critical Selection</h3>
+                    <p class="text-[10px] font-mono text-zinc-500 mb-4">"If this goes down, all hell breaks loose." Select up to 3 integrations to pin to the HUD.</p>
+                    
+                    <div class="flex flex-wrap gap-2">
+                        <!-- Dynamic priority options based on user selection -->
+                        <template x-for="opt in availablePriorities" :key="opt.id">
+                            <button @click="togglePriority(opt.id)" class="px-4 py-2 border rounded text-[10px] font-black uppercase tracking-widest transition-all"
+                                    :class="hudPriorities.includes(opt.id) ? 'bg-neon-purple/20 border-neon-purple text-neon-purple shadow-[0_0_10px_rgba(176,38,255,0.3)]' : 'border-zinc-700 text-zinc-500 hover:border-zinc-500'"
+                                    :disabled="!hudPriorities.includes(opt.id) && hudPriorities.length >= 3">
+                                <span x-text="opt.label"></span>
+                            </button>
+                        </template>
+                        <div x-show="availablePriorities.length === 0" class="text-zinc-500 text-xs font-mono">No eligible integrations selected. Proceed to finish.</div>
+                    </div>
+                    <span class="tooltip-text mt-3" x-show="hudPriorities.length >= 3">Maximum of 3 selections allowed to prevent HUD overcrowding.</span>
+                </div>
+
+                <div class="p-4 border border-zinc-800 rounded bg-black/30 mb-6 border-l-4 border-l-[#0088cc]">
+                    <h3 class="text-xs font-black text-white uppercase tracking-widest mb-3">Telegram Routing (Optional)</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-[10px] text-[#0088cc] font-black mb-1 uppercase tracking-wider">Bot Token</label>
+                            <input type="password" x-model="notifications.telegram_token" class="dark-input w-full rounded p-3 text-sm font-mono border-[#0088cc]/30">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-[#0088cc] font-black mb-1 uppercase tracking-wider">Chat ID</label>
+                            <input type="text" x-model="notifications.telegram_chat_id" class="dark-input w-full rounded p-3 text-sm font-mono border-[#0088cc]/30">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex justify-between items-center">
+                    <button @click="step = 3" class="px-6 py-2.5 text-zinc-400 font-black uppercase text-xs hover:text-white transition-colors" :disabled="isSaving">Back</button>
+                    <button @click="finalizeSetup()" class="px-8 py-3 bg-[#39ff14]/90 hover:bg-[#39ff14] text-black rounded font-black uppercase tracking-widest text-xs shadow-[0_0_20px_rgba(57,255,20,0.4)] transition-all flex items-center gap-2" :disabled="isSaving">
+                        <span x-text="isSaving ? 'Deploying...' : 'Boot NOC'"></span>
+                        <svg x-show="!isSaving" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        function setupWizard() {
+            return {
+                step: 1, adminExists: false, adminKey: '', newPassword: '', confirmPassword: '', authError: '', isSaving: false,
+                wanTarget: '1.1.1.1', wanName: 'Cloudflare DNS',
+                
+                basePriorityOptions: [
+                    { id: 'proxmox', label: 'Proxmox Core' },
+                    { id: 'esxi', label: 'ESXi Core' },
+                    { id: 'truenas', label: 'TrueNAS Array' },
+                    { id: 'pihole', label: 'DNS Sinkhole' },
+                    { id: 'pterodactyl', label: 'Game Fleet' }
+                ],
+                hudPriorities: [], 
+                
+                plugins: {
+                    proxmox: { enabled: false, testStatus: '', testMessage: '', data: { ip: '', token_id: '', token_secret: '' } },
+                    esxi: { enabled: false, testStatus: '', testMessage: '', data: { ip: '', user: '', password: '' } },
+                    truenas: { enabled: false, testStatus: '', testMessage: '', data: { ip: '', token: '' } },
+                    pterodactyl: { enabled: false, testStatus: '', testMessage: '', data: { url: '', token: '' } },
+                    pihole: { enabled: false, testStatus: '', testMessage: '', data: { ip: '', app_password: '' } },
+                    plex: { enabled: false, testStatus: '', testMessage: '', data: { url: '', token: '' } }
+                },
+                notifications: { telegram_token: '', telegram_chat_id: '', discord_webhook_url: '' },
+                
+                async checkStatus() {
+                    try {
+                        const res = await fetch('/api/setup/status');
+                        const data = await res.json();
+                        this.adminExists = data.admin_exists;
+                        if (data.is_setup_complete) { window.location.href = '/'; }
+                    } catch (e) { this.authError = "Backend offline or starting up..."; }
+                },
+
+                async createAdmin() {
+                    if (this.newPassword.length < 8) { this.authError = "PASSWORD MUST BE AT LEAST 8 CHARS."; return; }
+                    if (this.newPassword !== this.confirmPassword) { this.authError = "PASSWORDS DO NOT MATCH."; return; }
+                    
+                    try {
+                        const res = await fetch('/api/setup/init', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ password: this.newPassword })
+                        });
+                        if (res.ok) {
+                            this.adminExists = true;
+                            this.adminKey = this.newPassword;
+                            this.authError = "";
+                            sessionStorage.setItem('noc_admin_key', this.adminKey);
+                            this.step = 2;
+                        } else {
+                            const err = await res.json();
+                            this.authError = err.detail || "FAILED TO CREATE ACCOUNT.";
+                        }
+                    } catch (e) { this.authError = "NETWORK ERROR."; }
+                },
+
+                async validateAuth() {
+                    if (!this.adminKey) { this.authError = "PASSWORD REQUIRED."; return; }
+                    this.authError = "VALIDATING...";
+                    try {
+                        const res = await fetch('/api/live', { headers: { 'x-api-key': this.adminKey } });
+                        if (res.status === 401) { this.authError = "INVALID PASSWORD."; }
+                        else { 
+                            this.authError = ""; 
+                            sessionStorage.setItem('noc_admin_key', this.adminKey); 
+                            this.step = 2; 
+                        }
+                    } catch (e) { this.authError = "NETWORK ERROR."; }
+                },
+
+                togglePlugin(name) { this.plugins[name].enabled = !this.plugins[name].enabled; },
+                hasAnyPlugin() { return Object.values(this.plugins).some(p => p.enabled); },
+                
+                async testConnection(plugin) {
+                    this.plugins[plugin].testStatus = 'testing';
+                    this.plugins[plugin].testMessage = 'Contacting Host...';
+                    try {
+                        const res = await fetch('/api/setup/test-connection', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ plugin: plugin, data: this.plugins[plugin].data })
+                        });
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            this.plugins[plugin].testStatus = 'success';
+                            this.plugins[plugin].testMessage = data.message;
+                        } else {
+                            this.plugins[plugin].testStatus = 'error';
+                            this.plugins[plugin].testMessage = data.detail || 'Connection Failed';
+                        }
+                    } catch (e) {
+                        this.plugins[plugin].testStatus = 'error';
+                        this.plugins[plugin].testMessage = "Backend Network Error";
+                    }
+                },
+
+                // Dynamically calculate what plugins they actually selected
+                get availablePriorities() {
+                    return this.basePriorityOptions.filter(opt => this.plugins[opt.id] && this.plugins[opt.id].enabled);
+                },
+
+                prepareStep4() {
+                    // Auto-cleanup: If user unchecked a plugin in Step 3, remove it from their priorities array.
+                    this.hudPriorities = this.hudPriorities.filter(id => this.plugins[id] && this.plugins[id].enabled);
+                    
+                    // Smart UX: If they only selected 3 or fewer plugins total, auto-select them all as priorities.
+                    const availableIds = this.availablePriorities.map(p => p.id);
+                    if (availableIds.length > 0 && availableIds.length <= 3 && this.hudPriorities.length === 0) {
+                        this.hudPriorities = [...availableIds];
+                    }
+                    
+                    this.step = 4;
+                },
+
+                togglePriority(id) {
+                    if (this.hudPriorities.includes(id)) {
+                        this.hudPriorities = this.hudPriorities.filter(p => p !== id);
+                    } else if (this.hudPriorities.length < 3) {
+                        this.hudPriorities.push(id);
+                    }
+                },
+
+                async finalizeSetup() {
+                    if (!this.wanTarget) { alert("Please provide a WAN Target IP."); this.step = 2; return; }
+                    this.isSaving = true;
+                    
+                    let pluginsData = {};
+                    for (const [name, plugin] of Object.entries(this.plugins)) {
+                        if (plugin.enabled) {
+                            for (const [key, val] of Object.entries(plugin.data)) pluginsData[`${name}_${key}`] = val;
+                        }
+                    }
+
+                    try {
+                        const res = await fetch('/api/setup/finalize', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'x-api-key': this.adminKey },
+                            body: JSON.stringify({ 
+                                wan_target: this.wanTarget, 
+                                wan_name: this.wanName,
+                                hud_priorities: this.hudPriorities,
+                                plugins: pluginsData, 
+                                notifications: this.notifications 
+                            })
+                        });
+                        
+                        if (res.ok) {
+                            setTimeout(() => { window.location.href = '/'; }, 1000);
+                        } else {
+                            const err = await res.json();
+                            alert(err.detail || "Setup failed."); 
+                            this.isSaving = false;
+                        }
+                    } catch (e) { alert("Network error."); this.isSaving = false; }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+

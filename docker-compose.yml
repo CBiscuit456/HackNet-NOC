@@ -1,34 +1,33 @@
 version: '3.8'
 
 services:
-  # The FastAPI Backend & Static File Server
   noc-api:
     build: .
     container_name: hacknet-noc-api
-    restart: always
+    restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:
       - ./data:/app/data
-    env_file:
-      - .env
     environment:
       - DB_NAME=/app/data/metrics.db
+      - ADMIN_SECRET_KEY=super_secret_password_change_me
+      - TZ=Etc/UTC
     command: uvicorn api:app --host 0.0.0.0 --port 8000
 
-  # The Background Polling Engine
   noc-collector:
     build: .
     container_name: hacknet-noc-collector
-    restart: always
+    restart: unless-stopped
     volumes:
       - ./data:/app/data
-    env_file:
-      - .env
     environment:
       - DB_NAME=/app/data/metrics.db
+      - TZ=Etc/UTC
     command: python collector.py
     depends_on:
       - noc-api
 
+      
+      
       

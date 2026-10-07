@@ -38,6 +38,7 @@
             transition: all 0.2s;
         }
         .dark-input:focus { outline: none; border-color: #39ff14; box-shadow: 0 0 10px rgba(57, 255, 20, 0.2); }
+        .dark-input:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
@@ -57,12 +58,11 @@
         <div class="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
         
         <div class="relative z-10 flex flex-col items-center animate-pulse">
-            <img src="/static/boot_logo.jpeg" class="w-32 h-32 md:w-40 md:h-40 rounded-full border-2 border-neon-green shadow-[0_0_40px_rgba(57,255,20,0.4)] mb-6 object-cover">
+            <img src="/static/boot_logo.jpeg" class="w-32 h-32 md:w-40 md:h-40 rounded-full border-2 border-neon-green shadow-[0_0_40px_rgba(57,255,20,0.4)] mb-6 object-cover" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzM5ZmYxNCI+PHBhdGggZD0iTTEyIDJMMiAyMnYyaDIwdi0yTDEyIDJ6bTAgNEwxOSAxOUg1TDEyIDZ6Ii8+PC9zdmc+';">
             <h1 class="text-4xl md:text-6xl font-black text-white tracking-tighter drop-shadow-lg mb-2">
                 HACKNET <span class="text-neon-green">ADMIN</span>
             </h1>
             <p class="text-zinc-400 font-mono text-xs md:text-sm uppercase tracking-[0.3em] mb-12 font-bold">Your HomeLab, Managed</p>
-            <div class="mt-8 text-zinc-600 font-mono text-[9px] md:text-[10px] uppercase tracking-widest font-bold">Created by CB456</div>
         </div>
     </div>
 
@@ -92,7 +92,7 @@
             </div>
             <h2 class="text-2xl font-black mb-2 text-white tracking-wide uppercase">Admin Access</h2>
             <p class="text-zinc-500 font-mono text-xs mb-6 uppercase tracking-wider">Authentication Required</p>
-            <input type="password" x-model="password" @keyup.enter="login()" placeholder="Enter Authorization Key..." class="dark-input w-full rounded p-3 mb-6 text-center font-mono text-lg tracking-widest">
+            <input type="password" x-model="password" @keyup.enter="login()" placeholder="Enter Master Password..." class="dark-input w-full rounded p-3 mb-6 text-center font-mono text-lg tracking-widest">
             <button @click="login()" class="w-full bg-[#39ff14]/90 hover:bg-[#39ff14] text-black font-black uppercase tracking-widest py-3 rounded shadow-[0_0_15px_rgba(57,255,20,0.3)] transition-all">Authenticate</button>
         </div>
 
@@ -117,7 +117,11 @@
                             <input x-model="searchQuery" type="text" placeholder="Search infrastructure..." class="dark-input w-full rounded-full py-1.5 pl-4 pr-10 text-xs font-mono">
                             <svg class="w-4 h-4 text-zinc-500 absolute right-3 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         </div>
-                        <button @click="openNewForm()" class="px-4 py-1.5 bg-neon-green/10 text-neon-green border border-neon-green/50 hover:bg-neon-green hover:text-black rounded text-[10px] font-black uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(57,255,20,0.1)] whitespace-nowrap flex items-center gap-2">
+                        <button @click="openIntegrationModal()" class="px-4 py-1.5 bg-zinc-900 text-zinc-300 border border-zinc-700 hover:bg-zinc-800 hover:text-white rounded text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                            Integrations
+                        </button>
+                        <button @click="openNewSensorForm()" class="px-4 py-1.5 bg-neon-green/10 text-neon-green border border-neon-green/50 hover:bg-neon-green hover:text-black rounded text-[10px] font-black uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(57,255,20,0.1)] whitespace-nowrap flex items-center gap-2">
                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                             Add Sensor
                         </button>
@@ -140,7 +144,7 @@
                             <tr x-show="filteredTargets.length === 0">
                                 <td colspan="5" class="px-5 py-12 text-center text-zinc-600 font-mono text-[10px] uppercase tracking-widest">No infrastructure matches your filter</td>
                             </tr>
-                            <template x-for="t in filteredTargets" :key="t.entity_name + t.entity_type">
+                            <template x-for="t in filteredTargets" :key="t.uid">
                                 <tr class="hover:bg-zinc-900/40 transition-colors group">
                                     <td class="px-5 py-3 text-center">
                                         <div class="inline-flex items-center justify-center w-8 h-8 rounded-full border shadow-inner"
@@ -151,7 +155,7 @@
                                     </td>
                                     <td class="px-5 py-3">
                                         <div class="font-black text-zinc-200 uppercase tracking-wider text-sm drop-shadow" x-text="t.entity_name"></div>
-                                        <div class="text-[9px] font-mono text-zinc-500 tracking-widest truncate max-w-[250px] mt-0.5" x-text="t.target_address || t.uuid || 'N/A'"></div>
+                                        <div class="text-[9px] font-mono text-zinc-500 tracking-widest truncate max-w-[250px] mt-0.5" x-text="t.target_address || t.uid"></div>
                                     </td>
                                     <td class="px-5 py-3">
                                         <div class="flex gap-2 items-center">
@@ -163,8 +167,8 @@
                                         <span class="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-widest uppercase border"
                                               :class="t.cooldown_interval <= 1200 ? 'bg-red-950/50 text-red-400 border-red-900/50' : 'bg-blue-950/30 text-blue-400 border-blue-900/50'"
                                               x-text="getCooldownText(t.cooldown_interval)"></span>
-                                        <span x-show="t.cpu_threshold && t.entity_type !== 'storage'" class="text-[9px] text-zinc-400 font-bold tracking-widest uppercase"><span class="text-amber-500">CPU</span> <span x-text="t.cpu_threshold + '%'"></span></span>
-                                        <span x-show="t.mem_threshold" class="text-[9px] text-zinc-400 font-bold tracking-widest uppercase"><span class="text-neon-purple" x-text="t.entity_type === 'storage' ? 'DSK' : 'RAM'"></span> <span x-text="t.mem_threshold + '%'"></span></span>
+                                        <span x-show="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)" class="text-[9px] text-zinc-400 font-bold tracking-widest uppercase"><span class="text-amber-500">CPU</span> <span x-text="t.cpu_threshold + '%'"></span></span>
+                                        <span x-show="['host', 'vm', 'lxc', 'game', 'storage'].includes(t.entity_type)" class="text-[9px] text-zinc-400 font-bold tracking-widest uppercase"><span class="text-neon-purple" x-text="t.entity_type === 'storage' ? 'DSK' : 'RAM'"></span> <span x-text="t.mem_threshold + '%'"></span></span>
                                     </td>
                                     <td class="px-5 py-3 text-right">
                                         <div class="flex justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
@@ -245,19 +249,14 @@
             </div>
         </div>
 
-        <!-- SENSOR MODAL (Add / Edit) -->
-        <div x-show="isFormModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" style="display: none;">
-            <!-- Backdrop -->
-            <div x-show="isFormModalOpen" x-transition.opacity class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="closeForm()"></div>
+        <!-- MODAL: ADD / EDIT CUSTOM SENSOR -->
+        <div x-show="isSensorModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" style="display: none;">
+            <div x-show="isSensorModalOpen" x-transition.opacity class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="isSensorModalOpen = false"></div>
             
-            <!-- Modal Content -->
-            <div x-show="isFormModalOpen" 
+            <div x-show="isSensorModalOpen" 
                  x-transition:enter="transition ease-out duration-300"
                  x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                  x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
-                 x-transition:leave="transition ease-in duration-200"
-                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
-                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                  class="relative glass-panel w-full max-w-4xl rounded-xl border-t-4 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
                  :class="isEditing ? 'border-neon-purple' : 'border-neon-green'">
                 
@@ -265,45 +264,60 @@
                     <h2 class="text-xl font-black text-white uppercase tracking-widest flex items-center gap-3">
                         <svg x-show="!isEditing" class="w-6 h-6 text-neon-green" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                         <svg x-show="isEditing" class="w-6 h-6 text-neon-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                        <span x-text="isEditing ? 'Reconfigure Sensor' : 'Deploy New Sensor'"></span>
+                        <span x-text="isEditing ? 'Reconfigure Sensor' : 'Deploy Custom Sensor'"></span>
                     </h2>
-                    <button @click="closeForm()" class="text-zinc-500 hover:text-white transition-colors">
+                    <button @click="isSensorModalOpen = false" class="text-zinc-500 hover:text-white transition-colors">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
                 </div>
 
                 <div class="p-6 overflow-y-auto custom-scroll">
                     <form @submit.prevent="saveTarget()" class="grid grid-cols-1 md:grid-cols-12 gap-5">
-                        <div class="md:col-span-4">
-                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Sensor Name / Identity</label>
-                            <input x-model="form.name" type="text" placeholder="e.g. Ark_Server" class="dark-input w-full rounded p-3 font-mono text-sm" required>
+                        
+                        <div class="md:col-span-12 p-3 bg-blue-900/20 border border-blue-900/50 rounded mb-2" x-show="isEditing && isAutoDiscovered(form.entity_type)">
+                            <p class="text-[10px] text-blue-400 font-mono uppercase tracking-widest flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                This infrastructure is managed by Auto-Discovery. Identity fields are locked.
+                            </p>
                         </div>
+
                         <div class="md:col-span-4">
-                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Entity Classification</label>
-                            <select x-model="form.entity_type" class="dark-input w-full rounded p-3 font-mono text-sm" required>
-                                <option value="" disabled>Select Type...</option>
+                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Sensor Identity</label>
+                            <input x-model="form.name" type="text" placeholder="e.g. My_Website" class="dark-input w-full rounded p-3 font-mono text-sm" :disabled="isEditing && isAutoDiscovered(form.entity_type)" required>
+                        </div>
+                        
+                        <div class="md:col-span-4">
+                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Classification</label>
+                            
+                            <select x-show="!isEditing || !isAutoDiscovered(form.entity_type)" x-model="form.entity_type" class="dark-input w-full rounded p-3 font-mono text-sm" required>
+                                <option value="" disabled>Select Custom Monitor...</option>
                                 <option value="network">Network Routing (Ping)</option>
-                                <option value="app">Web / Application (TCP)</option>
-                                <option value="game">Pterodactyl Game Engine</option>
-                                <option value="storage">Proxmox Storage Array</option>
+                                <option value="app">Application Service (TCP)</option>
+                                <option value="http">Web FQDN (HTTP/S)</option>
                             </select>
+                            
+                            <div x-show="isEditing && isAutoDiscovered(form.entity_type)" class="dark-input w-full rounded p-3 font-mono text-sm uppercase opacity-50" x-text="form.entity_type"></div>
                         </div>
+
                         <div class="md:col-span-4">
-                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Location / Deployment Tag</label>
+                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Deployment Tag</label>
                             <input x-model="form.location" type="text" placeholder="e.g. US-East" class="dark-input w-full rounded p-3 font-mono text-sm">
                         </div>
 
-                        <div class="md:col-span-8">
-                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">IP Address / Target URI</label>
-                            <input x-model="form.target_address" type="text" placeholder="10.10.x.x" class="dark-input w-full rounded p-3 font-mono text-sm">
-                        </div>
-                        <div class="md:col-span-4">
-                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">TCP Port</label>
-                            <input x-model="form.port" type="number" placeholder="80" class="dark-input w-full rounded p-3 font-mono text-sm">
+                        <!-- Manual Network Fields -->
+                        <div class="md:col-span-12 grid grid-cols-1 md:grid-cols-12 gap-5" x-show="!isEditing || !isAutoDiscovered(form.entity_type)">
+                            <div class="md:col-span-8">
+                                <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5" x-text="form.entity_type === 'http' ? 'Full URL (https://...)' : 'Target IP / Hostname'"></label>
+                                <input x-model="form.target_address" type="text" :placeholder="form.entity_type === 'http' ? 'https://google.com' : '10.10.x.x'" class="dark-input w-full rounded p-3 font-mono text-sm">
+                            </div>
+                            <div class="md:col-span-4" x-show="form.entity_type === 'app'">
+                                <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">TCP Port</label>
+                                <input x-model="form.port" type="number" placeholder="80" class="dark-input w-full rounded p-3 font-mono text-sm">
+                            </div>
                         </div>
 
                         <div class="md:col-span-4">
-                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Notification Cooldown</label>
+                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Notification Priority</label>
                             <select x-model="form.cooldown_interval" class="dark-input w-full rounded p-3 font-mono text-sm">
                                 <option value="600">Critical Priority (10 Mins)</option>
                                 <option value="1200">Elevated Priority (20 Mins)</option>
@@ -313,6 +327,7 @@
                             </select>
                         </div>
 
+                        <!-- Thresholds (Only applicable to Auto-Discovered Infrastructure) -->
                         <div x-show="['host', 'vm', 'lxc', 'game'].includes(form.entity_type)" class="md:col-span-4">
                             <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">CPU Warning Threshold %</label>
                             <input x-model="form.cpu_threshold" type="number" step="0.1" placeholder="90.0" class="dark-input w-full rounded p-3 font-mono text-sm text-neon-green">
@@ -322,19 +337,104 @@
                             <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5" x-text="form.entity_type === 'storage' ? 'Disk Warning Threshold %' : 'RAM Warning Threshold %'"></label>
                             <input x-model="form.mem_threshold" type="number" step="0.1" placeholder="90.0" class="dark-input w-full rounded p-3 font-mono text-sm text-neon-purple">
                         </div>
-                        
-                        <div x-show="form.entity_type === 'game'" class="md:col-span-12 mt-2 p-4 border border-zinc-800 rounded bg-black/40">
-                            <label class="block text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Pterodactyl Server UUID</label>
-                            <input x-model="form.uuid" type="text" placeholder="Enter full server UUID string..." class="dark-input w-full rounded p-3 font-mono text-sm">
-                        </div>
 
                         <div class="md:col-span-12 mt-4 pt-6 border-t border-zinc-800 flex justify-end gap-3">
-                            <button type="button" @click="closeForm()" class="px-6 py-3 font-black uppercase tracking-widest text-xs text-zinc-400 hover:text-white transition-colors">Cancel</button>
+                            <button type="button" @click="isSensorModalOpen = false" class="px-6 py-3 font-black uppercase tracking-widest text-xs text-zinc-400 hover:text-white transition-colors">Cancel</button>
                             <button type="submit" class="px-8 py-3 font-black uppercase tracking-widest text-xs rounded shadow-lg transition-all border"
                                     :class="isEditing ? 'bg-neon-purple/20 text-neon-purple border-neon-purple hover:bg-neon-purple hover:text-black shadow-[0_0_15px_rgba(176,38,255,0.2)]' : 'bg-[#39ff14]/20 text-neon-green border-neon-green hover:bg-[#39ff14] hover:text-black shadow-[0_0_15px_rgba(57,255,20,0.2)]'"
                                     x-text="isEditing ? 'Commit Changes' : 'Initialize Sensor'"></button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: INTEGRATIONS SETTINGS (Agnostic mapped) -->
+        <div x-show="isIntegrationModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" style="display: none;">
+            <div x-show="isIntegrationModalOpen" x-transition.opacity class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="isIntegrationModalOpen = false"></div>
+            
+            <div x-show="isIntegrationModalOpen" 
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                 class="relative glass-panel w-full max-w-4xl rounded-xl border-t-4 border-zinc-500 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                
+                <div class="flex justify-between items-center p-6 border-b border-zinc-800 bg-black/50 shrink-0">
+                    <h2 class="text-xl font-black text-white uppercase tracking-widest flex items-center gap-3">
+                        <svg class="w-6 h-6 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        Integration Settings
+                    </h2>
+                    <button @click="isIntegrationModalOpen = false" class="text-zinc-500 hover:text-white transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <div class="p-6 overflow-y-auto custom-scroll space-y-6">
+                    <p class="text-[10px] text-zinc-400 font-mono tracking-widest uppercase">Note: Hidden credentials are masked with '***'. To change a key, overwrite it entirely. To disable an integration, delete the contents and save.</p>
+                    
+                    <div class="p-4 border border-zinc-800 rounded-lg bg-black/30">
+                        <h3 class="text-xs font-black text-white uppercase tracking-widest mb-3">Proxmox VE</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div><label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">IP Address</label><input type="text" x-model="integrations.plugin_proxmox_ip" class="dark-input w-full rounded p-3 font-mono text-sm"></div>
+                            <div><label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Token ID</label><input type="text" x-model="integrations.plugin_proxmox_token_id" placeholder="root@pam!noc" class="dark-input w-full rounded p-3 font-mono text-sm"></div>
+                            <div><label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Token Secret</label><input type="password" x-model="integrations.plugin_proxmox_token_secret" class="dark-input w-full rounded p-3 font-mono text-sm"></div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 border border-zinc-800 rounded-lg bg-black/30">
+                        <h3 class="text-xs font-black text-white uppercase tracking-widest mb-3">VMware ESXi</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div><label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">IP Address</label><input type="text" x-model="integrations.plugin_esxi_ip" class="dark-input w-full rounded p-3 font-mono text-sm"></div>
+                            <div><label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Username</label><input type="text" x-model="integrations.plugin_esxi_user" class="dark-input w-full rounded p-3 font-mono text-sm"></div>
+                            <div><label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Password</label><input type="password" x-model="integrations.plugin_esxi_password" class="dark-input w-full rounded p-3 font-mono text-sm"></div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 border border-zinc-800 rounded-lg bg-black/30">
+                        <h3 class="text-xs font-black text-white uppercase tracking-widest mb-3">TrueNAS</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">IP Address</label><input type="text" x-model="integrations.plugin_truenas_ip" class="dark-input w-full rounded p-3 font-mono text-sm"></div>
+                            <div><label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">API Token</label><input type="password" x-model="integrations.plugin_truenas_token" class="dark-input w-full rounded p-3 font-mono text-sm"></div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 border border-zinc-800 rounded-lg bg-black/30">
+                        <h3 class="text-xs font-black text-white uppercase tracking-widest mb-3">Pterodactyl Game Engine</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Panel URL</label><input type="text" x-model="integrations.plugin_pterodactyl_url" class="dark-input w-full rounded p-3 font-mono text-sm"></div>
+                            <div><label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Client API Key</label><input type="password" x-model="integrations.plugin_pterodactyl_token" class="dark-input w-full rounded p-3 font-mono text-sm"></div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 border border-zinc-800 rounded-lg bg-black/30">
+                        <h3 class="text-xs font-black text-white uppercase tracking-widest mb-3">Pi-Hole Sinkhole</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">IP Address</label><input type="text" x-model="integrations.plugin_pihole_ip" class="dark-input w-full rounded p-3 font-mono text-sm"></div>
+                            <div><label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">App Password (Optional)</label><input type="password" x-model="integrations.plugin_pihole_app_password" class="dark-input w-full rounded p-3 font-mono text-sm"></div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 border border-zinc-800 rounded-lg bg-black/30">
+                        <h3 class="text-xs font-black text-white uppercase tracking-widest mb-3">Plex Media Server</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Server URL</label><input type="text" x-model="integrations.plugin_plex_url" class="dark-input w-full rounded p-3 font-mono text-sm"></div>
+                            <div><label class="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">X-Plex-Token</label><input type="password" x-model="integrations.plugin_plex_token" class="dark-input w-full rounded p-3 font-mono text-sm"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 border border-zinc-800 rounded-lg bg-black/30">
+                        <h3 class="text-xs font-black text-white uppercase tracking-widest mb-3">Notification Routing</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div><label class="block text-[10px] font-black text-[#0088cc] uppercase tracking-widest mb-1">Telegram Bot Token</label><input type="password" x-model="integrations.notify_telegram_token" class="dark-input w-full rounded p-3 font-mono text-sm border-[#0088cc]/30 focus:border-[#0088cc]"></div>
+                            <div><label class="block text-[10px] font-black text-[#0088cc] uppercase tracking-widest mb-1">Telegram Chat ID</label><input type="text" x-model="integrations.notify_telegram_chat_id" class="dark-input w-full rounded p-3 font-mono text-sm border-[#0088cc]/30 focus:border-[#0088cc]"></div>
+                            <div class="md:col-span-2"><label class="block text-[10px] font-black text-[#5865F2] uppercase tracking-widest mb-1">Discord Webhook URL</label><input type="password" x-model="integrations.notify_discord_webhook_url" class="dark-input w-full rounded p-3 font-mono text-sm border-[#5865F2]/30 focus:border-[#5865F2]"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="p-6 border-t border-zinc-800 bg-black/50 shrink-0 flex justify-end gap-3">
+                    <button type="button" @click="isIntegrationModalOpen = false" class="px-6 py-3 font-black uppercase tracking-widest text-xs text-zinc-400 hover:text-white transition-colors">Cancel</button>
+                    <button @click="saveIntegrations()" class="px-8 py-3 bg-white text-black hover:bg-zinc-200 font-black uppercase tracking-widest text-xs rounded shadow-lg transition-all" x-text="isSavingIntegrations ? 'Saving...' : 'Update Integrations'" :disabled="isSavingIntegrations"></button>
                 </div>
             </div>
         </div>
@@ -349,21 +449,27 @@
                 targets: [],
                 logs: [],
                 settings: { global_mute: '0' },
-                isFormModalOpen: false,
+                
+                isSensorModalOpen: false,
                 isEditing: false,
+                
+                isIntegrationModalOpen: false,
+                isSavingIntegrations: false,
+                integrations: {},
                 
                 searchQuery: '',
                 activeTab: 'all',
                 tabs: [
                     { id: 'all', label: 'All Sensors' },
-                    { id: 'proxmox', label: 'Proxmox Compute' },
+                    { id: 'proxmox', label: 'Compute & VMs' },
                     { id: 'storage', label: 'Storage Arrays' },
-                    { id: 'game', label: 'Pterodactyl Games' },
-                    { id: 'app', label: 'Web Services' },
+                    { id: 'game', label: 'Game Servers' },
+                    { id: 'app', label: 'Services & Apps' },
+                    { id: 'http', label: 'Web FQDNs' },
                     { id: 'network', label: 'Core Network' }
                 ],
 
-                form: { old_name: '', old_type: '', name: '', entity_type: '', target_address: '', port: '', uuid: '', cooldown_interval: 3600, cpu_threshold: 90.0, mem_threshold: 90.0, location: 'Local' },
+                form: { uid: '', name: '', entity_type: '', target_address: '', port: '', cooldown_interval: 3600, cpu_threshold: 90.0, mem_threshold: 90.0, location: 'Local' },
 
                 get filteredTargets() {
                     return this.targets.filter(t => {
@@ -382,6 +488,10 @@
                         }
                         return matchesTab && matchesSearch;
                     });
+                },
+                
+                isAutoDiscovered(type) {
+                    return ['host', 'vm', 'lxc', 'storage', 'game'].includes(type);
                 },
 
                 getCooldownText(seconds) {
@@ -402,25 +512,28 @@
                     if (this.password) {
                         this.login(true);
                     } else {
-                        setTimeout(() => this.isLoading = false, 1500);
+                        setTimeout(() => this.isLoading = false, 1000);
                     }
                 },
                 async login(silent = false) {
                     if (!this.password) return;
                     try {
-                        const res = await fetch('/api/live');
+                        const res = await fetch('/api/live', { headers: { 'x-api-key': this.password } });
                         const json = await res.json();
                         if (json.status === 'success') {
                             this.isAuthenticated = true;
                             sessionStorage.setItem('noc_admin_key', this.password);
                             
-                            const minLoadTime = new Promise(resolve => setTimeout(resolve, 1500));
+                            const minLoadTime = new Promise(resolve => setTimeout(resolve, 1000));
                             const fetch1 = this.fetchData();
                             const fetch2 = this.fetchLogs();
                             
                             Promise.all([minLoadTime, fetch1, fetch2]).then(() => {
                                 this.isLoading = false;
                             });
+                        } else {
+                            if (!silent) alert(json.detail || "Authentication Failed.");
+                            this.isLoading = false;
                         }
                     } catch (e) { 
                         if (!silent) alert("Connection failed."); 
@@ -428,7 +541,7 @@
                     }
                 },
                 async fetchData() {
-                    const res = await fetch('/api/live');
+                    const res = await fetch('/api/live', { headers: { 'x-api-key': this.password } });
                     const json = await res.json();
                     if (json.status === 'success') {
                         this.targets = json.data;
@@ -453,15 +566,69 @@
                         sessionStorage.removeItem('noc_admin_key');
                         return false;
                     }
-                    if (res.status === 422) {
-                        alert("Validation Error: Please check your input format.");
+                    if (!res.ok) {
+                        const json = await res.json();
+                        alert("Error: " + (json.detail || "Request Failed"));
                         return false;
                     }
                     return true;
                 },
+                
+                async openIntegrationModal() {
+                    try {
+                        const res = await fetch('/api/admin/config', { headers: { 'x-api-key': this.password }});
+                        const json = await res.json();
+                        if (json.status === 'success') {
+                            this.integrations = json.data;
+                            this.isIntegrationModalOpen = true;
+                        }
+                    } catch(e) { alert("Failed to fetch configurations."); }
+                },
+                
+                async saveIntegrations() {
+                    this.isSavingIntegrations = true;
+                    
+                    // The backend /api/setup/finalize endpoint requires WAN target & HUD Priorities.
+                    // We extract the existing WAN settings from the dashboard data so we don't overwrite them.
+                    const wanTarget = this.targets.find(t => t.uid === 'mnl_wan_primary');
+                    
+                    const payload = {
+                        wan_target: wanTarget ? wanTarget.target_address : '1.1.1.1',
+                        wan_name: wanTarget ? wanTarget.entity_name : 'WAN Gateway',
+                        hud_priorities: this.settings.hud_priorities ? this.settings.hud_priorities.split(',') : ['proxmox', 'pihole'],
+                        plugins: {
+                            proxmox_ip: this.integrations.plugin_proxmox_ip,
+                            proxmox_token_id: this.integrations.plugin_proxmox_token_id,
+                            proxmox_token_secret: this.integrations.plugin_proxmox_token_secret,
+                            esxi_ip: this.integrations.plugin_esxi_ip,
+                            esxi_user: this.integrations.plugin_esxi_user,
+                            esxi_password: this.integrations.plugin_esxi_password,
+                            truenas_ip: this.integrations.plugin_truenas_ip,
+                            truenas_token: this.integrations.plugin_truenas_token,
+                            pterodactyl_url: this.integrations.plugin_pterodactyl_url,
+                            pterodactyl_token: this.integrations.plugin_pterodactyl_token,
+                            pihole_ip: this.integrations.plugin_pihole_ip,
+                            pihole_app_password: this.integrations.plugin_pihole_app_password,
+                            plex_url: this.integrations.plugin_plex_url,
+                            plex_token: this.integrations.plugin_plex_token
+                        },
+                        notifications: {
+                            telegram_token: this.integrations.notify_telegram_token,
+                            telegram_chat_id: this.integrations.notify_telegram_chat_id,
+                            discord_webhook_url: this.integrations.notify_discord_webhook_url
+                        }
+                    };
+
+                    if (await this._api('/api/setup/finalize', payload)) {
+                        this.isIntegrationModalOpen = false;
+                        setTimeout(() => this.fetchData(), 1500);
+                    }
+                    this.isSavingIntegrations = false;
+                },
+
                 async forcePoll() {
                     if (await this._api('/api/admin/force-poll', {})) {
-                        alert("PING COMMAND ISSUED.");
+                        alert("NETWORK PING COMMAND ISSUED.");
                         setTimeout(() => { this.fetchData(); this.fetchLogs(); }, 2000);
                     }
                 },
@@ -470,35 +637,34 @@
                     if (await this._api('/api/admin/sys-settings', { global_mute: newState })) this.fetchData();
                 },
                 async toggleTarget(t) {
-                    if (await this._api('/api/admin/toggle', { name: t.entity_name, entity_type: t.entity_type })) {
+                    if (await this._api('/api/admin/toggle', { uid: t.uid })) {
                         this.fetchData();
                         setTimeout(() => this.fetchLogs(), 1500); 
                     }
                 },
                 async deleteTarget(t) {
                     if (!confirm(`WIPE ${t.entity_name} FROM DATABASE?`)) return;
-                    if (await this._api('/api/admin/targets', { name: t.entity_name, entity_type: t.entity_type }, 'DELETE')) this.fetchData();
+                    if (await this._api('/api/admin/targets', { uid: t.uid }, 'DELETE')) this.fetchData();
                 },
-                openNewForm() {
+                openNewSensorForm() {
                     this.isEditing = false;
-                    this.form = { old_name: '', old_type: '', name: '', entity_type: '', target_address: '', port: '', uuid: '', cooldown_interval: 3600, cpu_threshold: 90.0, mem_threshold: 90.0, location: 'Local' };
-                    this.isFormModalOpen = true;
+                    this.form = { uid: '', name: '', entity_type: '', target_address: '', port: '', cooldown_interval: 3600, cpu_threshold: 90.0, mem_threshold: 90.0, location: 'Local' };
+                    this.isSensorModalOpen = true;
                 },
                 editTarget(t) {
                     this.isEditing = true;
                     this.form = { 
-                        old_name: t.entity_name, old_type: t.entity_type, 
-                        name: t.entity_name, entity_type: t.entity_type, 
-                        target_address: t.target_address || '', port: t.port || '', uuid: t.uuid || '', 
+                        uid: t.uid,
+                        name: t.entity_name, 
+                        entity_type: t.entity_type, 
+                        target_address: t.target_address || '', 
+                        port: t.port || '', 
                         cooldown_interval: t.cooldown_interval || 3600,
                         cpu_threshold: t.cpu_threshold || 90.0,
                         mem_threshold: t.mem_threshold || 90.0,
                         location: t.location || 'Local'
                     };
-                    this.isFormModalOpen = true;
-                },
-                closeForm() {
-                    this.isFormModalOpen = false;
+                    this.isSensorModalOpen = true;
                 },
                 async saveTarget() {
                     if (!this.form.port) this.form.port = 0;
@@ -511,7 +677,7 @@
                     else success = await this._api('/api/admin/targets', this.form, 'POST');
                     
                     if (success) { 
-                        this.closeForm(); 
+                        this.isSensorModalOpen = false; 
                         this.fetchData(); 
                     }
                 }
@@ -520,6 +686,10 @@
     </script>
 </body>
 </html>
+
+
+
+
 
 
 

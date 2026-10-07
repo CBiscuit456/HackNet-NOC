@@ -1,0 +1,9 @@
+fix(core): remove hardcoded exclusions and patch day-zero ui crash
+
+Collector (collector.py):
+- Stripped remaining references to IGNORE_ENTITIES to align with the new UI-driven pause functionality.
+- Codebase is now strictly configuration-driven with zero hardcoded environmental assumptions.
+
+UI (index.html & admin.html):
+- Added strict length checks to Javascript .find() methods to prevent fatal tracebacks when booting the dashboard against a fresh, empty SQLite database.
+- Synchronized the 'v2.7 live' branding tag across both dashboards.
