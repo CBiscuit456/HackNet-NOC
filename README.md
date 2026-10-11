@@ -1,129 +1,158 @@
-# HackNet NOC v2.8.ENT (Final Edition)
+# HackNet NOC v2.8.ENT
 **An Enterprise-Grade, Headless Network Operations Center for Homelabs.**
 
 ![HackNet NOC Dashboard](docs/dashboard-screenshot.png)
-*(Replace this placeholder with a screenshot of your main dashboard)*
 
-HackNet NOC is a high-density, fault-tolerant monitoring appliance designed to track Proxmox hypervisors, TrueNAS Storage Arrays, Portainer Docker fleets, Pterodactyl game servers, network routing, Pi-Hole instances, and Media Servers (Plex/Jellyfin). Built on a lightweight FastAPI and SQLite backend, it features a mathematically auto-scaling 1080p/4K frontend dashboard designed specifically for headless wall-mounted displays.
+HackNet NOC is a high-density, fault-tolerant monitoring appliance designed specifically for homelabs and small enterprise environments. Built on a lightweight FastAPI and SQLite backend, it features a mathematically auto-scaling frontend dashboard optimized for headless wall-mounted displays (1080p/4K).
 
----
-
-## ✨ Key Enterprise Features
-
-* **Root Cause Analysis (RCA) Engine:** Prevents "Alert Storms." If a physical host goes down, HackNet NOC automatically groups the dependent VMs, Docker Containers, and Web Apps into a Dependency Stack. You receive *one* critical alert for the root failure, rather than 50 separate notifications.
-* **Smart Auto-Discovery:** Simply provide your API tokens in the Web Wizard, and the system automatically discovers and maps your Host nodes, LXCs, VMs, Storage Pools, Docker Containers, and Media Streams. 
-* **Dynamic Modularity:** Don't use Pterodactyl or Pi-Hole? Just skip them in the setup wizard. The engine gracefully degrades and only polls what you configure.
-* **Smart Hysteresis (Anti-Flapping):** Ping and TCP checks execute rapid micro-retries if a packet drops, preventing false Telegram/Discord spam caused by standard network jitter.
-* **Scheduled & On-Demand Reporting:** Automatically compiles and dispatches a full infrastructure status report to your Telegram/Discord at 08:00 and 20:00. Reports can also be triggered on-demand via the Admin Console.
-* **Native Responsiveness:** The UI uses native CSS Grid to perfectly expand across 4K displays or gracefully collapse into a column layout for mobile viewing, pushing dormant/paused infrastructure cleanly out of sight.
+The system continuously tracks Proxmox hypervisors, VMware ESXi, TrueNAS/Synology/QNAP Storage Arrays, Portainer Docker fleets, Pterodactyl game servers, external network routing, Pi-Hole instances, and Media Servers (Plex/Jellyfin).
 
 ---
 
-## 🚀 The "Watcher" Philosophy
+## ✨ Key Capabilities
 
-HackNet NOC is designed to be the ultimate source of truth for your infrastructure. 
-
-**Best Practice:** It is highly recommended to deploy this instance on independent hardware (like a Raspberry Pi or a separate mini-PC). *Do not host HackNet on the exact hypervisor you are trying to monitor.* If your main server goes down, HackNet must stay online to alert you.
-
----
-
-## 📦 Deployment & Undeployment
-
-### Option A: Docker / Portainer (Highly Recommended)
-
-Deploying via Docker is the easiest and cleanest way to run HackNet NOC. It spins up two lightweight containers: an API backend and a Polling engine.
-
-**To Deploy:**
-1. Clone the repository and navigate into it:
-   ```bash
-   git clone https://github.com/yourusername/hacknet-noc.git
-   cd hacknet-noc
-   ```
-2. Create the data directory (CRITICAL to prevent SQLite permission errors):
-   ```bash
-   mkdir data
-   ```
-3. Spin up the stack in the background:
-   ```bash
-   docker-compose up -d --build
-   ```
-4. Access your setup wizard at `http://<your-ip>:8000`.
-
-**To Undeploy / Remove:**
-1. Stop and remove the containers:
-   ```bash
-   docker-compose down
-   ```
-2. *(Optional)* Wipe all persistent data, configurations, and history:
-   ```bash
-   sudo rm -rf data/
-   ```
+* **Root Cause Analysis (RCA) Engine:** Prevents "Alert Storms." If a physical host goes down, HackNet NOC automatically groups the dependent VMs, Docker Containers, and Web Apps into a Dependency Stack. You receive *one* critical alert for the root failure, rather than 50 separate notifications for every offline child service.
+* **Smart Auto-Discovery:** Simply provide your API tokens in the Web Wizard. The engine securely maps your Host nodes, LXCs, VMs, Storage Pools, Docker Containers, and Media Streams without manual data entry.
+* **Dynamic Modularity:** Don't use Pterodactyl or Pi-Hole? Just skip them during setup. The engine gracefully degrades and only allocates resources to poll exactly what you configure.
+* **Smart Hysteresis (Anti-Flapping):** Built-in micro-retries for network and TCP checks prevent false Telegram/Discord alert spam caused by standard network jitter or momentary latency spikes.
+* **Automated Reporting:** Compiles and dispatches a full infrastructure status matrix to your Telegram/Discord at 08:00 and 20:00 daily. Reports can also be triggered on-demand via the Admin Console.
+* **Native Responsiveness:** The UI uses native CSS Grid to perfectly expand across 4K displays or gracefully collapse into a column layout for mobile viewing, pushing dormant infrastructure cleanly out of sight.
 
 ---
 
-### Option B: Bare Metal / Raspberry Pi (install.sh)
+## 🏗️ Architecture & The "Watcher" Philosophy
 
-If you prefer to run this directly on a Raspberry Pi OS Lite (64-bit) instance without Docker, an automated deployment script is included.
+HackNet NOC is engineered to be the ultimate source of truth for your infrastructure. 
 
-**To Deploy:**
-1. Clone the repository, navigate into it, and make the installer executable:
-   ```bash
-   git clone https://github.com/yourusername/hacknet-noc.git
-   cd hacknet-noc
-   chmod +x install.sh
-   ```
-2. Run the installer as root:
-   ```bash
-   sudo ./install.sh
-   ```
-3. Start the systemd services:
-   ```bash
-   sudo systemctl start hacknet-api hacknet-collector
-   ```
-4. Access your setup wizard at `http://<your-ip>:8000`.
+**Best Practice:** It is highly recommended to deploy this instance on independent, dedicated hardware (such as a Raspberry Pi or a separate mini-PC). *Do not host HackNet on the exact hypervisor you are trying to monitor.* If your main server goes down, your watcher must remain online and capable of dispatching outbound alerts.
 
-**To Undeploy / Remove:**
-1. Stop the background services:
-   ```bash
-   sudo systemctl stop hacknet-api hacknet-collector
-   ```
-2. Disable the services from booting on startup:
-   ```bash
-   sudo systemctl disable hacknet-api hacknet-collector
-   ```
-3. Delete the systemd service files:
-   ```bash
-   sudo rm /etc/systemd/system/hacknet-api.service
-   sudo rm /etc/systemd/system/hacknet-collector.service
-   sudo systemctl daemon-reload
-   ```
-4. *(Optional)* Delete the entire application folder to completely wipe the installation:
-   ```bash
-   cd ..
-   sudo rm -rf hacknet-noc/
-   ```
+**Under the Hood:**
+The application utilizes an asynchronous, thread-pooled Python backend that acts as the collector engine, paired with a FastAPI web server. All configurations, API keys (symmetrically encrypted via 256-bit Fernet), and historical metrics are stored in a local SQLite database utilizing Write-Ahead Logging (WAL) for high-speed, concurrent read/writes. This ensures zero reliance on heavy external databases like Redis or PostgreSQL.
 
 ---
 
-## ⚙️ Configuration (The Setup Wizard)
+## 🚀 Deployment Guide
 
-Unlike older monitoring tools, HackNet NOC does not require you to configure massive `.env` files. 
+### Option A: Docker (Highly Recommended)
 
-When you navigate to the dashboard for the first time, you will be greeted by the **First-Boot Setup Wizard**. From the Web UI, you will be prompted to securely input:
-* Your Master Password (which securely encrypts your configuration)
-* Your Core WAN Routing IP (to determine internet connectivity)
-* Your Integration URLs and API Tokens (Proxmox, Portainer, TrueNAS, etc.)
+Deploying via Docker ensures perfect dependency isolation. You do not need to download the source code; you simply pull the pre-built image from the GitHub Container Registry.
+
+1. Create a `docker-compose.yml` file anywhere on your system:
+   ```yaml
+   services:
+     noc-api:
+       image: ghcr.io/cbiscuit456/hacknet-noc:latest
+       container_name: hacknet-noc-api
+       restart: unless-stopped
+       ports:
+         - "8000:8000"
+       volumes:
+         - ./data:/app/data
+
+     noc-collector:
+       image: ghcr.io/cbiscuit456/hacknet-noc:latest
+       container_name: hacknet-noc-collector
+       restart: unless-stopped
+       volumes:
+         - ./data:/app/data
+       command: python collector.py
+       depends_on:
+         - noc-api
+   ```
+2. Start the application:
+   ```bash
+   docker-compose up -d
+   ```
+3. Navigate to `http://<your-ip>:8000` to begin the First-Boot Setup Wizard.
+
+### Option B: Bare Metal / Raspberry Pi OS (One-Liner)
+
+If you prefer to run this directly on a Debian/Ubuntu-based instance (or Raspberry Pi OS 64-bit) without Docker, you can use the automated bash installer.
+
+Simply paste the following command into your terminal:
+```bash
+curl -sSL https://raw.githubusercontent.com/CBiscuit456/hacknet-noc/master/install.sh | sudo bash
+```
+*This script will automatically install dependencies, clone the app to `/opt/hacknet-noc`, configure the Python environment, and start the background systemd services.*
+
+---
+
+## ⚙️ Initial Configuration
+
+Unlike older monitoring tools, HackNet NOC does not require you to configure massive `.env` files manually. 
+
+Upon your first visit to the dashboard, you will be guided through the **Web Setup Wizard**. You will be prompted to securely input:
+* Your Master Password (which symmetrically encrypts your configuration in the DB)
+* Your Core WAN Routing IP (to determine ISP-level internet connectivity)
+* Your Integration URLs and API Tokens
 * Your Telegram Bot / Discord Webhook URL for alerting
 
-The setup wizard features **Smart Discovery**, which will pre-scan your APIs and propose the optimal monitoring topology (RCA Dependency Stacks) before you finalize the installation.
+The setup wizard features **Smart Discovery**, which will pre-scan your APIs and propose the optimal monitoring topology (RCA Dependency Stacks) before finalizing the installation.
+
+---
+
+## 🔄 Updating HackNet NOC
+
+HackNet NOC is designed for seamless, non-destructive updates. Your historical data and configurations remain safely untouched in your `data` directory.
+
+**To update via Docker:**
+```bash
+docker-compose pull
+docker-compose up -d
+```
+
+**To update via Bare Metal:**
+Simply re-run the installation one-liner. It will detect the existing installation at `/opt/hacknet-noc`, pull the latest code, and restart the services automatically.
+```bash
+curl -sSL https://raw.githubusercontent.com/CBiscuit456/hacknet-noc/master/install.sh | sudo bash
+```
 
 ---
 
 ## 🛠️ Operations & Troubleshooting
 
-* **Accessing the Admin Panel:** Navigate to `http://<your-ip>:8000/admin`. From here, you can trigger global network polls, dispatch status reports, update API keys, add custom Ping/TCP sensors, and mute active alerts.
+* **Accessing the Admin Panel:** Navigate to `http://<your-ip>:8000/admin`. From here, you can trigger global network polls, dispatch status reports, update API keys, map custom TCP/HTTP sensors, and mute global sirens.
 * **Accurate Proxmox RAM (QEMU Agent):** By default, Proxmox only reports the *allocated* RAM of a VM. To see the *true* RAM usage on your NOC dashboard, enable the "QEMU Guest Agent" in your Proxmox VM hardware options, and install the agent inside the guest OS (`sudo apt install qemu-guest-agent`).
-* **Database Maintenance:** The system handles its own database pruning. It deletes metrics older than 7 days, event logs older than 30 days, and runs an incremental vacuum every hour to keep the SQLite database lightning-fast. Do not manually run a full `VACUUM` while the engine is running.
+* **Database Maintenance:** The system handles its own database pruning automatically. It deletes metrics older than 7 days, event logs older than 30 days, and runs an incremental vacuum every hour to keep the database lightning-fast. 
+
+---
+
+## 🗑️ Clean Uninstallation
+
+If you need to completely remove HackNet NOC from your system, follow the instructions below to ensure zero orphaned files or networks are left behind.
+
+**If deployed via Docker:**
+```bash
+# Spin down containers and remove orphaned volumes
+docker-compose down -v --remove-orphans
+
+# Delete the associated Docker images
+docker rmi ghcr.io/cbiscuit456/hacknet-noc:latest
+
+# Remove persistent data
+sudo rm -rf data/ docker-compose.yml
+```
+
+**If deployed via Bare Metal:**
+```bash
+# Stop and disable the background services
+sudo systemctl stop hacknet-api hacknet-collector
+sudo systemctl disable hacknet-api hacknet-collector
+
+# Delete the systemd service files and reload the daemon
+sudo rm /etc/systemd/system/hacknet-api.service
+sudo rm /etc/systemd/system/hacknet-collector.service
+sudo systemctl daemon-reload
+
+# Wipe the application directory securely
+sudo rm -rf /opt/hacknet-noc/
+```
+
+---
+*HackNet NOC is open-source software built for the homelab community.*
+
+
+
 
 
 
