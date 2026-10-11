@@ -7,7 +7,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  # Hardcoded to strict lowercase to prevent Docker build crashes
+  IMAGE_NAME: cbiscuit456/hacknet-noc
 
 jobs:
   build-and-push-image:
@@ -44,4 +45,5 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
+          
           
