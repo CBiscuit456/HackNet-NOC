@@ -1,7 +1,7 @@
 # HackNet NOC v2.8
 **A lightweight, headless monitoring dashboard built for homelabs.**
 
-![HackNet NOC Dashboard](docs/dashboard-screenshot.png)
+![HackNet NOC Dashboard](image.png)
 
 HackNet NOC gives you a single pane of glass for your Proxmox nodes, VMware ESXi hosts, NAS storage (TrueNAS/Synology/QNAP), Docker containers, game servers (Pterodactyl), Pi-hole, and media servers. 
 
