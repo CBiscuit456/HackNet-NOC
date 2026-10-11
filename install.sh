@@ -28,15 +28,14 @@ sudo -u $APP_USER .hacknet_env/bin/pip install -r requirements.txt
 echo -e "\033[1;36m[3/6] Setting up Data Directory...\033[0m"
 sudo -u $APP_USER mkdir -p data
 
-echo -e "\033[1;36m[4/6] Configuring Security Credentials...\033[0m"
+echo -e "\033[1;36m[4/6] Configuring Environment Variables...\033[0m"
 if [ ! -f .env ]; then
     sudo -u $APP_USER cat << 'EOF' > .env
-# HackNet NOC Security
-# Integrations (Proxmox, PiHole, etc) are managed via the Web UI Setup Wizard.
-ADMIN_SECRET_KEY=super_secret_password_change_me
+# HackNet NOC Enterprise
+# Security and Integrations are managed dynamically via the Web UI Setup Wizard.
 DB_NAME=data/metrics.db
 EOF
-    echo -e "   -> Created template .env file. Please change the ADMIN_SECRET_KEY later."
+    echo -e "   -> Created template .env file."
 else
     echo -e "   -> .env file already exists. Skipping."
 fi

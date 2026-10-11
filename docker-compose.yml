@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   noc-api:
     build: .
@@ -11,7 +9,6 @@ services:
       - ./data:/app/data
     environment:
       - DB_NAME=/app/data/metrics.db
-      - ADMIN_SECRET_KEY=super_secret_password_change_me
       - TZ=Etc/UTC
     command: uvicorn api:app --host 0.0.0.0 --port 8000
 
@@ -27,6 +24,8 @@ services:
     command: python collector.py
     depends_on:
       - noc-api
+
+      
 
       
       

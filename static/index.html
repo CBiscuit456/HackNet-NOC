@@ -11,34 +11,46 @@
     
     <style>
         [x-cloak] { display: none !important; }
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@400;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700;800&display=swap');
         
         body { 
             font-family: 'Inter', sans-serif; 
-            background-color: #000000; 
+            background: radial-gradient(circle at 50% 0%, #111827 0%, #000000 80%);
+            color: #e4e4e7; 
             margin: 0; padding: 0;
-            overflow-x: hidden;
+            overflow: hidden;
+            height: 100vh;
         }
         
         .font-mono { font-family: 'JetBrains Mono', monospace; }
 
-        .hud-panel {
-            background: rgba(8, 8, 8, 0.9);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        .glass-panel {
+            background: rgba(20, 24, 30, 0.7); 
+            backdrop-filter: blur(20px); 
+            -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+
+        .hud-panel {
+            background: rgba(12, 15, 20, 0.85);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             border-bottom: 2px solid #39ff14;
             box-shadow: 0 10px 40px -10px rgba(57, 255, 20, 0.15), inset 0 1px 0 rgba(255,255,255,0.05);
         }
 
         .card-nominal {
-            background: rgba(15, 15, 15, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.03);
+            background: rgba(10, 12, 16, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .status-pulse-red { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); animation: pulseRed 2s infinite; border-color: rgba(239, 68, 68, 0.6); background: rgba(69, 10, 10, 0.4) !important; }
-        .status-paused { opacity: 0.35; filter: grayscale(100%); }
+        .status-pulse-amber { box-shadow: 0 0 20px rgba(245, 158, 11, 0.3); animation: pulseAmber 2s infinite; border-color: rgba(245, 158, 11, 0.6); background: rgba(69, 26, 3, 0.4) !important; }
+        .status-paused { opacity: 0.5; filter: grayscale(100%); border-color: rgba(255,255,255,0.05); background: rgba(10,10,10,0.5); }
         
         @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); } 70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        @keyframes pulseAmber { 0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); } 70% { box-shadow: 0 0 0 15px rgba(245, 158, 11, 0); } 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); } }
         @keyframes pulseAlertText { 0% { opacity: 0.7; } 50% { opacity: 1; text-shadow: 0 0 15px rgba(239,68,68,0.8); } 100% { opacity: 0.7; } }
         
         .alert-header { animation: pulseAlertText 2s infinite; }
@@ -55,12 +67,17 @@
         .text-neon-purple { color: #b026ff; }
         .border-neon-green { border-color: #39ff14; }
         
+        .nav-item { transition: all 0.2s ease-in-out; }
+        .nav-item.active { background: rgba(57, 255, 20, 0.1); color: #39ff14; border-right: 3px solid #39ff14; }
+        .nav-item:hover:not(.active) { background: rgba(255, 255, 255, 0.05); color: white; }
+
         .custom-scroll::-webkit-scrollbar { width: 6px; }
         .custom-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
-        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgba(57, 255, 20, 0.5); }
     </style>
 </head>
-<body class="text-zinc-200 min-h-screen flex flex-col" x-data="nocApp()" x-init="initApp()" x-cloak>
+<body class="flex flex-col md:flex-row" x-data="nocApp()" x-init="initApp()" @fullscreenchange.window="isDisplayMode = !!document.fullscreenElement" x-cloak>
 
     <!-- LOADING SCREEN OVERLAY -->
     <div x-show="isLoading" 
@@ -72,293 +89,419 @@
         <div class="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
         
         <div class="relative z-10 flex flex-col items-center animate-pulse">
-            <img src="/static/boot_logo.jpeg" class="w-32 h-32 md:w-40 md:h-40 rounded-full border-2 border-neon-green shadow-[0_0_40px_rgba(57,255,20,0.4)] mb-6 object-cover" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzM5ZmYxNCI+PHBhdGggZD0iTTEyIDJMMiAyMnYyaDIwdi0yTDEyIDJ6bTAgNEwxOSAxOUg1TDEyIDZ6Ii8+PC9zdmc+';">
+            <img src="/static/boot_logo.jpeg" class="w-32 h-32 md:w-40 md:h-40 rounded-full border-2 border-neon-green shadow-[0_0_40px_rgba(57,255,20,0.4)] mb-6 object-cover">
             <h1 class="text-4xl md:text-6xl font-black text-white tracking-tighter drop-shadow-lg mb-2">
                 HACKNET <span class="text-neon-green">NOC</span>
             </h1>
-            <p class="text-zinc-400 font-mono text-xs md:text-sm uppercase tracking-[0.3em] mb-12 font-bold">Your HomeLab, Monitored</p>
-            <div class="mt-8 text-zinc-500 font-mono text-sm md:text-base lg:text-lg uppercase tracking-widest font-bold">Created by CB456</div>
+            <p class="text-zinc-400 font-mono text-xs md:text-sm uppercase tracking-[0.3em] mb-12 font-bold">Your HomeLab, Monitored!</p>
         </div>
     </div>
 
     <!-- BACKGROUND -->
-    <div class="fixed inset-0 z-0 bg-[url('/static/boot_logo.jpeg')] bg-cover bg-center bg-no-repeat opacity-30"></div>
-    <div class="fixed inset-0 z-0 bg-black/85 backdrop-blur-xl"></div> 
+    <div class="fixed inset-0 z-0 bg-[url('/static/boot_logo.jpeg')] bg-cover bg-center bg-no-repeat opacity-10 mix-blend-screen pointer-events-none"></div>
 
-    <!-- MAIN DASHBOARD CONTENT -->
-    <div class="relative z-10 w-full flex-1 flex flex-col p-4 md:p-6 lg:p-8 xl:p-10 overflow-y-auto custom-scroll">
-        
-        <!-- HEADER -->
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 md:mb-8 shrink-0 pb-2 gap-4">
+    <!-- FLOATING EXIT DISPLAY BUTTON -->
+    <button x-show="isDisplayMode" x-transition.opacity @click="toggleDisplayMode()" class="fixed bottom-6 right-6 z-50 px-5 py-3 bg-black/80 backdrop-blur-md border border-zinc-700 text-zinc-300 hover:text-white hover:border-neon-green rounded-full text-xs font-black uppercase tracking-widest shadow-2xl flex items-center gap-2 transition-all cursor-pointer">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"></path></svg>
+        Exit Display Mode
+    </button>
+
+    <!-- SIDEBAR NAVIGATION -->
+    <div x-show="!isDisplayMode" class="w-full md:w-64 glass-panel border-r border-zinc-800/80 flex flex-col shrink-0 relative z-30 h-auto md:h-full transition-all duration-300">
+        <div class="p-6 border-b border-zinc-800/80 flex justify-between items-center md:block">
             <div>
-                <h1 class="text-3xl md:text-5xl lg:text-6xl font-black text-white tracking-tighter drop-shadow-lg flex items-center gap-4">
+                <h1 class="text-2xl font-black text-white tracking-tighter drop-shadow-lg">
                     HACKNET <span class="text-neon-green">NOC</span>
-                    <span class="text-xs md:text-sm font-mono text-zinc-500 font-bold tracking-widest border border-zinc-700 bg-black px-3 py-1 rounded shadow-inner hidden sm:inline-block">v2.8 live</span>
                 </h1>
-                <div class="flex items-center gap-2 md:gap-4 mt-2 md:mt-3 text-[10px] md:text-sm lg:text-base font-mono text-zinc-400 font-bold uppercase tracking-widest">
-                    <span class="flex items-center gap-2">
-                        <div class="w-2.5 h-2.5 rounded-full bg-neon-green animate-pulse" x-show="!isMuted"></div>
-                        <div class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" x-show="isMuted"></div>
-                        <span class="text-white" x-text="isMuted ? 'MUTED' : 'SYSTEM LIVE'"></span>
-                    </span>
-                    <span class="text-zinc-700">//</span>
-                    <span class="text-white" x-text="'TIME: ' + sysTime"></span>
-                </div>
+                <p class="text-zinc-500 font-mono text-[9px] mt-1 uppercase tracking-[0.2em] font-bold">v2.8.ENT Live Matrix</p>
             </div>
-            <a href="/admin" class="px-5 py-2.5 bg-black/50 border border-zinc-800 hover:border-neon-green text-zinc-400 hover:text-neon-green rounded text-xs lg:text-sm font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-2 z-20 backdrop-blur-md">
-                <svg class="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            <!-- Mobile Toggle -->
+            <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden text-zinc-400 hover:text-white">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto py-4 flex flex-col gap-1 px-3" :class="{'hidden md:flex': !mobileMenuOpen}">
+            <button @click="activeView = 'overview'; mobileMenuOpen = false; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-400" :class="activeView === 'overview' ? 'active' : ''">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                Fleet Overview
+            </button>
+            <button @click="activeView = 'compute'; mobileMenuOpen = false; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-400" :class="activeView === 'compute' ? 'active' : ''">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg>
+                Compute & VMs
+            </button>
+            <button @click="activeView = 'storage'; mobileMenuOpen = false; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-400" :class="activeView === 'storage' ? 'active' : ''">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+                Storage Arrays
+            </button>
+            <button @click="activeView = 'apps'; mobileMenuOpen = false; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-400" :class="activeView === 'apps' ? 'active' : ''">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
+                Apps & Network
+            </button>
+            <button @click="activeView = 'games'; mobileMenuOpen = false; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-400" :class="activeView === 'games' ? 'active' : ''">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                Game Fleet
+            </button>
+            
+            <div class="mt-4 mb-2 border-t border-zinc-800/80 mx-4"></div>
+            
+            <button @click="activeView = 'dormant'; mobileMenuOpen = false; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-500 hover:text-zinc-300" :class="activeView === 'dormant' ? 'bg-white/5 text-white border-r-2 border-white' : ''">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                Dormant & Paused
+            </button>
+        </nav>
+
+        <div class="p-6 border-t border-zinc-800/80 mt-auto hidden md:block">
+            <button @click="toggleDisplayMode()" class="w-full px-4 py-3 bg-cyan-950/30 border border-cyan-900/50 text-cyan-500 hover:bg-cyan-500/20 hover:text-white rounded text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 mb-3 backdrop-blur-md">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                Display Mode
+            </button>
+            <a href="/admin" class="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-700 text-zinc-400 hover:text-neon-green hover:border-neon-green rounded text-[10px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2 backdrop-blur-md">
+                <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 Admin Console
             </a>
-        </header>
+        </div>
+    </div>
 
-        <!-- THE UNIFIED DYNAMIC HUD -->
-        <div class="hud-panel rounded-xl mb-8 md:mb-10 shrink-0 flex flex-col xl:flex-row w-full z-20 overflow-hidden divide-y xl:divide-y-0 xl:divide-x divide-zinc-800/80">
+    <!-- MAIN CONTENT AREA -->
+    <div class="flex-1 flex flex-col relative z-20 h-full overflow-hidden">
+        
+        <!-- HEADER (Time & Status) -->
+        <div class="px-6 py-4 md:px-10 md:py-6 flex justify-between items-center border-b border-zinc-800/30 shrink-0 bg-black/20">
+            <h2 class="text-lg md:text-xl font-black text-white uppercase tracking-widest hidden md:block" x-text="viewTitle"></h2>
+            <div class="flex items-center gap-3 text-[10px] md:text-xs lg:text-sm font-mono text-zinc-400 font-bold uppercase tracking-widest w-full md:w-auto justify-between md:justify-end">
+                <span class="flex items-center gap-2">
+                    <div class="w-2.5 h-2.5 rounded-full bg-neon-green animate-pulse" x-show="!isMuted"></div>
+                    <div class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" x-show="isMuted"></div>
+                    <span class="text-white" x-text="isMuted ? 'ALERTS MUTED' : 'SYSTEM LIVE'"></span>
+                </span>
+                <span class="text-zinc-700 hidden sm:inline">//</span>
+                <span class="text-white" x-text="'TIME: ' + sysTime"></span>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto custom-scroll p-4 md:p-6 lg:p-8 xl:p-10 flex flex-col">
             
-            <!-- STATIC PANEL 1: FLEET HEALTH -->
-            <div class="w-full xl:w-1/6 p-5 md:p-6 lg:p-8 flex flex-col justify-between bg-black/20">
-                <div>
-                    <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Fleet Health</h2>
-                    <div class="text-4xl lg:text-5xl 2xl:text-6xl font-black font-mono text-white drop-shadow-md mt-1 2xl:mt-3" x-text="fleetStatus.online + '/' + fleetStatus.totalActive"></div>
-                </div>
-                <div class="flex flex-col gap-2 mt-6 text-[10px] md:text-xs 2xl:text-sm font-mono font-bold uppercase tracking-widest">
-                    <div class="flex justify-between items-center text-red-500" x-show="fleetStatus.offline > 0">
-                        <span>Offline</span> <span x-text="fleetStatus.offline"></span>
-                    </div>
-                    <div class="flex justify-between items-center text-amber-500" x-show="fleetStatus.alerts > 0">
-                        <span>Alerts</span> <span x-text="fleetStatus.alerts"></span>
-                    </div>
-                    <div class="flex justify-between items-center text-neon-green" x-show="fleetStatus.offline === 0 && fleetStatus.alerts === 0">
-                        <span>Nominal</span> <span>OK</span>
-                    </div>
-                    <div class="flex justify-between items-center text-zinc-600 border-t border-zinc-800/80 pt-2 mt-1" x-show="fleetStatus.paused > 0">
-                        <span>Paused</span> <span x-text="fleetStatus.paused"></span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- STATIC PANEL 2: WAN ROUTING -->
-            <div class="w-full xl:w-1/4 p-5 md:p-6 lg:p-8 flex flex-col relative overflow-hidden bg-black/20" :class="wanStatus === 'stopped' ? 'bg-red-950/20' : ''">
-                <div class="flex justify-between items-start z-10">
+            <!-- THE UNIFIED DYNAMIC HUD (Permanent Anchorage) -->
+            <div class="hud-panel rounded-xl mb-8 shrink-0 flex flex-col xl:flex-row w-full z-20 overflow-hidden divide-y xl:divide-y-0 xl:divide-x divide-zinc-800/80">
+                
+                <!-- STATIC PANEL 1: FLEET HEALTH -->
+                <div class="w-full xl:w-1/6 p-5 md:p-6 lg:p-8 flex flex-col justify-between bg-black/20">
                     <div>
-                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase" x-text="wanName"></h2>
-                        <!-- AWAITING DATA LOGIC INJECTED HERE -->
-                        <div class="font-black font-mono mt-1 2xl:mt-3 drop-shadow-md" 
-                             :class="wanStatus === 'pending' ? 'text-amber-500 animate-pulse text-2xl lg:text-3xl 2xl:text-4xl' : (wanStatus === 'stopped' ? 'text-red-500 text-4xl lg:text-5xl 2xl:text-6xl' : 'text-neon-green text-4xl lg:text-5xl 2xl:text-6xl')" 
-                             x-text="wanStatus === 'pending' ? 'AWAITING DATA' : (wanStatus === 'stopped' ? 'OFFLINE' : wanPing + ' ms')"></div>
+                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Fleet Health</h2>
+                        <div class="text-4xl lg:text-5xl 2xl:text-6xl font-black font-mono text-white drop-shadow-md mt-1 2xl:mt-3" x-text="fleetStatus.online + '/' + fleetStatus.totalActive"></div>
+                    </div>
+                    <div class="flex flex-col gap-2 mt-6 text-[10px] md:text-xs 2xl:text-sm font-mono font-bold uppercase tracking-widest">
+                        <div class="flex justify-between items-center text-red-500" x-show="fleetStatus.offline > 0">
+                            <span>Offline</span> <span x-text="fleetStatus.offline"></span>
+                        </div>
+                        <div class="flex justify-between items-center text-amber-500" x-show="fleetStatus.alerts > 0">
+                            <span>Alerts</span> <span x-text="fleetStatus.alerts"></span>
+                        </div>
+                        <div class="flex justify-between items-center text-neon-green" x-show="fleetStatus.offline === 0 && fleetStatus.alerts === 0">
+                            <span>Nominal</span> <span>OK</span>
+                        </div>
+                        <div class="flex justify-between items-center text-zinc-600 border-t border-zinc-800/80 pt-2 mt-1" x-show="fleetStatus.paused > 0">
+                            <span>Dormant</span> <span x-text="fleetStatus.paused"></span>
+                        </div>
                     </div>
                 </div>
-                <div class="flex-1 relative w-full -mb-5 -ml-5 -mr-5 mt-4 min-h-[80px] 2xl:min-h-[100px]" x-show="wanStatus !== 'pending'">
-                    <canvas id="wanChart"></canvas>
-                </div>
-            </div>
 
-            <!-- DYNAMIC PANEL: HYPERVISOR CORE -->
-            <div x-show="hasPriority('proxmox') || hasPriority('esxi')" class="flex-1 w-full xl:w-auto p-5 md:p-6 lg:p-8 flex flex-col justify-between relative overflow-hidden">
-                <div class="flex justify-between items-start w-full">
-                    <div>
-                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Compute Core</h2>
-                        <!-- AWAITING DATA LOGIC INJECTED HERE -->
-                        <div class="text-2xl md:text-3xl lg:text-4xl 2xl:text-5xl font-black uppercase tracking-wider drop-shadow" 
-                             :class="hostName === 'NO HOST' ? 'text-amber-500 animate-pulse' : 'text-white'" 
-                             x-text="hostName === 'NO HOST' ? 'AWAITING DATA' : hostName"></div>
+                <!-- STATIC PANEL 2: WAN ROUTING -->
+                <div class="w-full xl:w-1/4 p-5 md:p-6 lg:p-8 flex flex-col relative overflow-hidden bg-black/20" :class="wanStatus === 'stopped' ? 'bg-red-950/20' : ''">
+                    <div class="flex justify-between items-start z-10 w-full h-full flex-col">
+                        <div>
+                            <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase" x-text="wanName"></h2>
+                            <div class="font-black font-mono mt-1 2xl:mt-3 drop-shadow-md" 
+                                 :class="wanStatus === 'pending' ? 'text-amber-500 animate-pulse text-2xl lg:text-3xl 2xl:text-4xl' : (wanStatus === 'stopped' ? 'text-red-500 text-4xl lg:text-5xl 2xl:text-6xl' : 'text-neon-green text-4xl lg:text-5xl 2xl:text-6xl')" 
+                                 x-text="wanStatus === 'pending' ? 'AWAITING DATA' : (wanStatus === 'stopped' ? 'OFFLINE' : wanPing + ' ms')"></div>
+                        </div>
+                        <div x-show="wanStatus === 'running'" class="flex gap-4 mt-auto pt-6 text-[10px] lg:text-xs 2xl:text-sm font-mono font-bold uppercase tracking-widest text-zinc-500 w-full justify-between">
+                            <div>JITTER: <span class="text-white" x-text="wanJitter + ' ms'"></span></div>
+                            <div>LOSS: <span :class="wanLoss > 0 ? 'text-amber-500 animate-pulse' : 'text-white'" x-text="wanLoss + '%'"></span></div>
+                        </div>
                     </div>
-                    <div class="text-right flex flex-col items-end">
-                        <span class="text-[9px] 2xl:text-xs font-mono font-black tracking-[0.1em] uppercase px-3 py-1 rounded border mb-2 shadow-inner"
-                              :class="hostName === 'NO HOST' ? 'bg-amber-900/30 text-amber-500 border-amber-500/30' : (hostStatus === 'running' ? 'bg-[#39ff14]/10 text-neon-green border-neon-green/30' : 'bg-red-900/30 text-red-400 border-red-500/30')"
-                              x-text="hostName === 'NO HOST' ? 'PENDING' : (hostStatus === 'stopped' ? 'CRITICAL OFFLINE' : 'NOMINAL')"></span>
-                        <span class="text-[10px] lg:text-xs 2xl:text-sm font-mono text-zinc-400 font-bold uppercase tracking-widest" x-show="hostStatus === 'running'">UP: <span class="text-white" x-text="formatUptime(hostUptime)"></span></span>
+                    <div class="absolute bottom-0 left-0 w-full h-1/2 opacity-30 z-0 pointer-events-none" x-show="wanStatus !== 'pending'">
+                        <canvas id="wanChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- DYNAMIC HUD 1: HYPERVISOR CORE -->
+                <div x-show="hasPriority('compute')" class="flex-1 w-full xl:w-auto p-5 md:p-6 lg:p-8 flex flex-col justify-between relative overflow-hidden">
+                    <div class="flex justify-between items-start w-full">
+                        <div>
+                            <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Compute Core</h2>
+                            <div class="text-2xl md:text-3xl lg:text-4xl 2xl:text-5xl font-black uppercase tracking-wider drop-shadow" 
+                                 :class="hostName === 'NO HOST' ? 'text-amber-500 animate-pulse' : 'text-white'" 
+                                 x-text="hostName === 'NO HOST' ? 'AWAITING DATA' : hostName"></div>
+                        </div>
+                        <div class="text-right flex flex-col items-end">
+                            <span class="text-[9px] 2xl:text-xs font-mono font-black tracking-[0.1em] uppercase px-3 py-1 rounded border mb-2 shadow-inner"
+                                  :class="hostName === 'NO HOST' ? 'bg-amber-900/30 text-amber-500 border-amber-500/30' : (hostStatus === 'running' ? 'bg-[#39ff14]/10 text-neon-green border-neon-green/30' : 'bg-red-900/30 text-red-400 border-red-500/30')"
+                                  x-text="hostName === 'NO HOST' ? 'PENDING' : (hostStatus === 'stopped' ? 'CRITICAL OFFLINE' : 'NOMINAL')"></span>
+                            <span class="text-[10px] lg:text-xs 2xl:text-sm font-mono text-zinc-400 font-bold uppercase tracking-widest" x-show="hostStatus === 'running'">UP: <span class="text-white" x-text="formatUptime(hostUptime)"></span></span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-col md:flex-row justify-between items-center w-full mt-6 xl:mt-auto" x-show="hostStatus === 'running'">
+                        <div class="flex gap-6 2xl:gap-10 w-full md:w-auto mb-4 md:mb-0 justify-center">
+                            <div class="flex flex-col items-center">
+                                <div class="dial w-16 h-16 lg:w-20 lg:h-20 2xl:w-24 2xl:h-24 bg-black mb-2.5 shadow-[0_5px_15px_rgba(0,0,0,0.5)] border border-zinc-900" :style="getDialGradient(hostCpu, getCpuColor(hostCpu, hostCpuThresh))">
+                                    <span class="relative z-10 text-sm lg:text-base 2xl:text-xl font-mono font-bold text-white drop-shadow-md" x-text="Math.round(hostCpu) + '%'"></span>
+                                </div>
+                                <span class="text-[9px] lg:text-[10px] 2xl:text-xs font-black text-zinc-500 tracking-widest uppercase">CPU</span>
+                            </div>
+                            <div class="flex flex-col items-center">
+                                <div class="dial w-16 h-16 lg:w-20 lg:h-20 2xl:w-24 2xl:h-24 bg-black mb-2.5 shadow-[0_5px_15px_rgba(0,0,0,0.5)] border border-zinc-900" :style="getDialGradient((hostMemUsed / Math.max(hostMemTotal, 1)) * 100, getRamColor((hostMemUsed / Math.max(hostMemTotal, 1)) * 100, hostMemThresh))">
+                                    <span class="relative z-10 text-xs lg:text-sm 2xl:text-lg font-mono font-bold text-white drop-shadow-md" x-text="hostMemUsed.toFixed(1) + 'G'"></span>
+                                </div>
+                                <span class="text-[9px] lg:text-[10px] 2xl:text-xs font-black text-zinc-500 tracking-widest uppercase">RAM</span>
+                            </div>
+                            <div class="flex flex-col items-center">
+                                <div class="dial w-16 h-16 lg:w-20 lg:h-20 2xl:w-24 2xl:h-24 bg-black mb-2.5 shadow-[0_5px_15px_rgba(0,0,0,0.5)] border border-zinc-900" :style="getDialGradient((hostDiskUsed / Math.max(hostDiskTotal, 1)) * 100, getRamColor((hostDiskUsed / Math.max(hostDiskTotal, 1)) * 100, hostMemThresh))">
+                                    <span class="relative z-10 text-sm lg:text-base 2xl:text-xl font-mono font-bold text-white drop-shadow-md" x-text="Math.round((hostDiskUsed / Math.max(hostDiskTotal, 1)) * 100) + '%'"></span>
+                                </div>
+                                <span class="text-[9px] lg:text-[10px] 2xl:text-xs font-black text-zinc-500 tracking-widest uppercase">ROOT</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex flex-col gap-2.5 text-right pb-1 w-full md:w-auto text-center md:text-right">
+                            <div class="flex items-center justify-center md:justify-end gap-2 text-xs lg:text-sm 2xl:text-base font-mono font-bold uppercase tracking-widest">
+                                <svg class="w-4 h-4 2xl:w-5 2xl:h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                                <span class="text-zinc-500">RX: <span class="text-white" x-text="hostRx"></span> Mbps</span>
+                            </div>
+                            <div class="flex items-center justify-center md:justify-end gap-2 text-xs lg:text-sm 2xl:text-base font-mono font-bold uppercase tracking-widest">
+                                <svg class="w-4 h-4 2xl:w-5 2xl:h-5 text-fuchsia-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                                <span class="text-zinc-500">TX: <span class="text-white" x-text="hostTx"></span> Mbps</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DYNAMIC HUD 2: STORAGE ARRAYS -->
+                <div x-show="hasPriority('storage')" class="flex-1 w-full xl:w-auto p-5 md:p-6 lg:p-8 flex flex-col justify-between">
+                    <div>
+                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Storage Fleet</h2>
+                        <div class="text-3xl md:text-4xl 2xl:text-5xl font-black font-mono mt-1 2xl:mt-3" 
+                             :class="storageAgg.total > 0 ? 'text-white' : 'text-amber-500 animate-pulse'" 
+                             x-text="storageAgg.total > 0 ? (formatStorage(storageAgg.used) + ' / ' + formatStorage(storageAgg.total)) : 'AWAITING DATA'"></div>
+                    </div>
+                    <div class="flex items-center justify-between mt-6 xl:mt-auto" x-show="storageAgg.total > 0">
+                        <div class="w-full bg-black/60 rounded-full h-4 overflow-hidden border border-zinc-800 shadow-inner mr-4">
+                            <div class="h-full rounded-full transition-all duration-1000" :style="`width: ${storageAgg.percent}%; background: ${getRamColor(storageAgg.percent, 90)}`"></div>
+                        </div>
+                        <span class="text-xl lg:text-2xl font-mono font-black" :style="`color: ${getRamColor(storageAgg.percent, 90)}`" x-text="storageAgg.percent.toFixed(1) + '%'"></span>
+                    </div>
+                </div>
+
+                <!-- DYNAMIC HUD 3: DNS SINKHOLE -->
+                <div x-show="hasPriority('dns')" class="flex-1 w-full xl:w-auto p-5 md:p-6 lg:p-8 flex justify-between items-center relative overflow-hidden" :class="!piholeLoaded ? 'bg-amber-950/20' : ''">
+                    <div class="flex flex-col justify-between h-full z-10 w-full pr-4">
+                        <div>
+                            <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase">DNS Sinkhole</h2>
+                            <div class="text-2xl lg:text-3xl 2xl:text-4xl font-black font-mono mt-1 2xl:mt-3" 
+                                 :class="!piholeLoaded ? 'text-amber-500 animate-pulse' : (piholeActive ? 'text-neon-green' : 'text-red-500')" 
+                                 x-text="!piholeLoaded ? 'AWAITING DATA' : (piholeActive ? 'ACTIVE' : 'OFFLINE')"></div>
+                        </div>
+                        <div class="mt-auto font-mono space-y-3 pt-6" x-show="piholeLoaded">
+                            <div class="flex justify-between text-xs lg:text-sm 2xl:text-base uppercase font-black tracking-widest text-zinc-500">
+                                <span>Gravity:</span> <span class="text-white" x-text="(pihole.domains_blocked || 0).toLocaleString()"></span>
+                            </div>
+                            <div class="flex justify-between text-xs lg:text-sm 2xl:text-base uppercase font-black tracking-widest text-zinc-500">
+                                <span>Total:</span> <span class="text-white" x-text="(pihole.queries_today || 0).toLocaleString()"></span>
+                            </div>
+                            <div class="flex justify-between text-xs lg:text-sm 2xl:text-base uppercase font-black tracking-widest text-zinc-500">
+                                <span>Blocked:</span> <span class="text-neon-green" x-text="(pihole.ads_blocked || 0).toLocaleString()"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dial w-20 h-20 lg:w-24 lg:h-24 2xl:w-32 2xl:h-32 bg-black shadow-[0_5px_15px_rgba(0,0,0,0.5)] border border-zinc-900 z-10 shrink-0" :style="getDialGradient(pihole.ads_percentage || 0, '#39ff14')" x-show="piholeLoaded">
+                        <div class="relative z-10 flex flex-col items-center justify-center">
+                            <span class="text-base lg:text-xl 2xl:text-2xl font-black font-mono text-white leading-none drop-shadow-md" x-text="Math.round(pihole.ads_percentage || 0) + '%'"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DYNAMIC HUD 4: DOCKER FLEET -->
+                <div x-show="hasPriority('docker')" class="flex-1 w-full xl:w-auto p-5 md:p-6 lg:p-8 flex flex-col justify-between relative overflow-hidden">
+                    <div>
+                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Docker Fleet</h2>
+                        <div class="text-3xl md:text-4xl font-black font-mono mt-1" 
+                             :class="dockerAgg.total > 0 ? (dockerAgg.online === dockerAgg.total ? 'text-neon-green' : (dockerAgg.online > 0 ? 'text-amber-500' : 'text-red-500')) : 'text-amber-500 animate-pulse'" 
+                             x-text="dockerAgg.total > 0 ? (dockerAgg.online + ' / ' + dockerAgg.total + ' LIVE') : 'AWAITING DATA'"></div>
+                    </div>
+                    <div class="mt-auto font-mono text-xs lg:text-sm uppercase font-black text-zinc-500 pt-6" x-show="dockerAgg.total > 0">
+                        Containers Mapped: <span class="text-white" x-text="dockerAgg.total"></span>
+                    </div>
+                </div>
+
+                <!-- DYNAMIC HUD 5: GAME FLEET -->
+                <div x-show="hasPriority('games')" class="flex-1 w-full xl:w-auto p-5 md:p-6 lg:p-8 flex flex-col justify-between relative overflow-hidden">
+                    <div>
+                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Game Fleet</h2>
+                        <div class="text-3xl md:text-4xl font-black font-mono mt-1" 
+                             :class="gameAgg.total > 0 ? (gameAgg.online === gameAgg.total ? 'text-neon-green' : (gameAgg.online > 0 ? 'text-amber-500' : 'text-red-500')) : 'text-amber-500 animate-pulse'" 
+                             x-text="gameAgg.total > 0 ? (gameAgg.online + ' / ' + gameAgg.total + ' ONLINE') : 'AWAITING DATA'"></div>
+                    </div>
+                    <div class="mt-auto font-mono text-xs lg:text-sm uppercase font-black text-zinc-500 pt-6" x-show="gameAgg.total > 0">
+                        Active Nodes: <span class="text-white" x-text="gameAgg.online"></span>
                     </div>
                 </div>
                 
-                <div class="flex flex-col md:flex-row justify-between items-center w-full mt-6 xl:mt-auto" x-show="hostStatus === 'running'">
-                    <div class="flex gap-6 2xl:gap-10 w-full md:w-auto mb-4 md:mb-0 justify-center">
-                        <div class="flex flex-col items-center">
-                            <div class="dial w-16 h-16 lg:w-20 lg:h-20 2xl:w-24 2xl:h-24 bg-black mb-2.5 shadow-[0_5px_15px_rgba(0,0,0,0.5)] border border-zinc-900" :style="getDialGradient(hostCpu, getCpuColor(hostCpu, hostCpuThresh))">
-                                <span class="relative z-10 text-sm lg:text-base 2xl:text-xl font-mono font-bold text-white drop-shadow-md" x-text="Math.round(hostCpu) + '%'"></span>
-                            </div>
-                            <span class="text-[9px] lg:text-[10px] 2xl:text-xs font-black text-zinc-500 tracking-widest uppercase">CPU</span>
-                        </div>
-                        <div class="flex flex-col items-center">
-                            <div class="dial w-16 h-16 lg:w-20 lg:h-20 2xl:w-24 2xl:h-24 bg-black mb-2.5 shadow-[0_5px_15px_rgba(0,0,0,0.5)] border border-zinc-900" :style="getDialGradient((hostMemUsed / Math.max(hostMemTotal, 1)) * 100, getRamColor((hostMemUsed / Math.max(hostMemTotal, 1)) * 100, hostMemThresh))">
-                                <span class="relative z-10 text-xs lg:text-sm 2xl:text-lg font-mono font-bold text-white drop-shadow-md" x-text="hostMemUsed.toFixed(1) + 'G'"></span>
-                            </div>
-                            <span class="text-[9px] lg:text-[10px] 2xl:text-xs font-black text-zinc-500 tracking-widest uppercase">RAM</span>
-                        </div>
-                        <div class="flex flex-col items-center">
-                            <div class="dial w-16 h-16 lg:w-20 lg:h-20 2xl:w-24 2xl:h-24 bg-black mb-2.5 shadow-[0_5px_15px_rgba(0,0,0,0.5)] border border-zinc-900" :style="getDialGradient((hostDiskUsed / Math.max(hostDiskTotal, 1)) * 100, getRamColor((hostDiskUsed / Math.max(hostDiskTotal, 1)) * 100, hostMemThresh))">
-                                <span class="relative z-10 text-sm lg:text-base 2xl:text-xl font-mono font-bold text-white drop-shadow-md" x-text="Math.round((hostDiskUsed / Math.max(hostDiskTotal, 1)) * 100) + '%'"></span>
-                            </div>
-                            <span class="text-[9px] lg:text-[10px] 2xl:text-xs font-black text-zinc-500 tracking-widest uppercase">ROOT</span>
-                        </div>
-                    </div>
-                    
-                    <div class="flex flex-col gap-2.5 text-right pb-1 w-full md:w-auto text-center md:text-right">
-                        <div class="flex items-center justify-center md:justify-end gap-2 text-xs lg:text-sm 2xl:text-base font-mono font-bold uppercase tracking-widest">
-                            <svg class="w-4 h-4 2xl:w-5 2xl:h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
-                            <span class="text-zinc-500">RX: <span class="text-white" x-text="hostRx"></span> Mbps</span>
-                        </div>
-                        <div class="flex items-center justify-center md:justify-end gap-2 text-xs lg:text-sm 2xl:text-base font-mono font-bold uppercase tracking-widest">
-                            <svg class="w-4 h-4 2xl:w-5 2xl:h-5 text-fuchsia-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
-                            <span class="text-zinc-500">TX: <span class="text-white" x-text="hostTx"></span> Mbps</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- DYNAMIC PANEL: STORAGE ARRAYS -->
-            <div x-show="hasPriority('storage') || hasPriority('truenas')" class="flex-1 w-full xl:w-auto p-5 md:p-6 lg:p-8 flex flex-col justify-between">
-                <div>
-                    <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Storage Fleet</h2>
-                    <div class="text-3xl md:text-4xl 2xl:text-5xl font-black font-mono mt-1 2xl:mt-3" 
-                         :class="storageAgg.total > 0 ? 'text-white' : 'text-amber-500 animate-pulse'" 
-                         x-text="storageAgg.total > 0 ? (formatStorage(storageAgg.used) + ' / ' + formatStorage(storageAgg.total)) : 'AWAITING DATA'"></div>
-                </div>
-                <div class="flex items-center justify-between mt-6 xl:mt-auto" x-show="storageAgg.total > 0">
-                    <div class="w-full bg-black/60 rounded-full h-4 overflow-hidden border border-zinc-800 shadow-inner mr-4">
-                        <div class="h-full rounded-full transition-all duration-1000" :style="`width: ${storageAgg.percent}%; background: ${getRamColor(storageAgg.percent, 90)}`"></div>
-                    </div>
-                    <span class="text-xl lg:text-2xl font-mono font-black" :style="`color: ${getRamColor(storageAgg.percent, 90)}`" x-text="storageAgg.percent.toFixed(1) + '%'"></span>
-                </div>
-            </div>
-
-            <!-- DYNAMIC PANEL: DNS SINKHOLE -->
-            <div x-show="hasPriority('pihole')" class="flex-1 w-full xl:w-auto p-5 md:p-6 lg:p-8 flex justify-between items-center relative overflow-hidden" :class="!piholeLoaded ? 'bg-amber-950/20' : ''">
-                <div class="flex flex-col justify-between h-full z-10 w-full pr-4">
+                <!-- DYNAMIC HUD 6: MEDIA FLEET -->
+                <div x-show="hasPriority('media')" class="flex-1 w-full xl:w-auto p-5 md:p-6 lg:p-8 flex flex-col justify-between relative overflow-hidden">
                     <div>
-                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase">DNS Sinkhole</h2>
-                        <div class="text-2xl lg:text-3xl 2xl:text-4xl font-black font-mono mt-1 2xl:mt-3" 
-                             :class="!piholeLoaded ? 'text-amber-500 animate-pulse' : (piholeActive ? 'text-neon-green' : 'text-red-500')" 
-                             x-text="!piholeLoaded ? 'AWAITING DATA' : (piholeActive ? 'ACTIVE' : 'OFFLINE')"></div>
+                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Media Fleet</h2>
+                        <div class="text-3xl md:text-4xl font-black font-mono mt-1 text-neon-purple drop-shadow-[0_0_15px_rgba(176,38,255,0.4)]" 
+                             x-text="mediaAgg.online > 0 ? 'ONLINE & ACTIVE' : (mediaAgg.total > 0 ? 'IDLE / READY' : 'AWAITING DATA')"></div>
                     </div>
-                    <div class="mt-auto font-mono space-y-3 pt-6" x-show="piholeLoaded">
-                        <div class="flex justify-between text-xs lg:text-sm 2xl:text-base uppercase font-black tracking-widest text-zinc-500">
-                            <span>Gravity:</span> <span class="text-white" x-text="(pihole.domains_blocked || 0).toLocaleString()"></span>
-                        </div>
-                        <div class="flex justify-between text-xs lg:text-sm 2xl:text-base uppercase font-black tracking-widest text-zinc-500">
-                            <span>Total:</span> <span class="text-white" x-text="(pihole.queries_today || 0).toLocaleString()"></span>
-                        </div>
-                        <div class="flex justify-between text-xs lg:text-sm 2xl:text-base uppercase font-black tracking-widest text-zinc-500">
-                            <span>Blocked:</span> <span class="text-neon-green" x-text="(pihole.ads_blocked || 0).toLocaleString()"></span>
-                        </div>
+                    <div class="mt-auto font-mono text-xs lg:text-sm uppercase font-black text-zinc-500 pt-6" x-show="mediaAgg.total > 0">
+                        Media Servers Tracked: <span class="text-white" x-text="mediaAgg.total"></span>
                     </div>
                 </div>
-                <div class="dial w-20 h-20 lg:w-24 lg:h-24 2xl:w-32 2xl:h-32 bg-black shadow-[0_5px_15px_rgba(0,0,0,0.5)] border border-zinc-900 z-10 shrink-0" :style="getDialGradient(pihole.ads_percentage || 0, '#39ff14')" x-show="piholeLoaded">
-                    <div class="relative z-10 flex flex-col items-center justify-center">
-                        <span class="text-base lg:text-xl 2xl:text-2xl font-black font-mono text-white leading-none drop-shadow-md" x-text="Math.round(pihole.ads_percentage || 0) + '%'"></span>
-                    </div>
-                </div>
+
             </div>
 
-            <!-- DYNAMIC PANEL: GAME FLEET -->
-            <div x-show="hasPriority('pterodactyl')" class="flex-1 w-full xl:w-auto p-5 md:p-6 lg:p-8 flex flex-col justify-between relative overflow-hidden">
-                <div>
-                    <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Game Fleet</h2>
-                    <div class="text-3xl md:text-4xl font-black font-mono mt-1" 
-                         :class="gameAgg.total > 0 ? (gameAgg.online === gameAgg.total ? 'text-neon-green' : (gameAgg.online > 0 ? 'text-amber-500' : 'text-red-500')) : 'text-amber-500 animate-pulse'" 
-                         x-text="gameAgg.total > 0 ? (gameAgg.online + ' / ' + gameAgg.total + ' ONLINE') : 'AWAITING DATA'"></div>
-                </div>
-                <div class="mt-auto font-mono text-xs lg:text-sm uppercase font-black text-zinc-500 pt-6" x-show="gameAgg.total > 0">
-                    Active Nodes: <span class="text-white" x-text="gameAgg.online"></span>
-                </div>
-            </div>
+            <!-- DYNAMIC TABBED CONTENT GRID ANCHOR -->
+            <div id="grid-top" class="scroll-mt-6"></div>
 
-        </div>
-
-        <!-- DYNAMIC ACTIVE ALERTS ROW (Only visible if something is broken or overloaded) -->
-        <div x-show="activeAlerts.length > 0" x-transition class="flex flex-col mb-8 md:mb-10 shrink-0 bg-red-950/30 p-5 rounded-xl border-t border-b border-red-900/50 shadow-[0_10px_30px_rgba(239,68,68,0.1)]">
-            <h3 class="text-xs md:text-sm font-black text-red-500 uppercase tracking-[0.25em] mb-5 flex items-center gap-2 alert-header">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                CRITICAL INFRASTRUCTURE ALERTS
-            </h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-                <template x-for="t in activeAlerts" :key="'alert-' + t.entity_name">
-                    <div class="glass-panel rounded-xl p-6 flex flex-col justify-between transition-all min-h-[180px] relative overflow-hidden"
-                         :class="{ 'status-pulse-red bg-red-950/60 border-red-500/60': t.status === 'stopped', 'bg-black/95 border-zinc-700 shadow-xl': t.status === 'running' }">
-                        
-                        <div class="flex justify-between items-start mb-2 z-10">
-                            <div class="truncate w-full">
-                                <h4 class="font-black text-white text-lg md:text-xl uppercase tracking-wider truncate drop-shadow" x-text="t.entity_name"></h4>
-                                <div class="flex items-center gap-2 mt-1.5">
-                                    <div class="text-[10px] 2xl:text-xs font-mono font-black tracking-widest uppercase px-2 py-0.5 rounded inline-block border bg-red-900/30 text-red-400 border-red-500/30"
-                                         x-text="t.status === 'stopped' ? 'OFFLINE' : 'CAPACITY WARNING'"></div>
-                                    <div class="text-[9px] 2xl:text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest px-2 py-0.5 rounded bg-black/50 border border-zinc-700/50" x-text="t.location || 'LOCAL'"></div>
+            <!-- DYNAMIC ACTIVE ALERTS ROW (Permanent Anchorage) -->
+            <div x-show="activeAlerts.length > 0" x-transition class="flex flex-col mb-8 md:mb-10 shrink-0 bg-red-950/30 p-5 rounded-xl border-t border-b border-red-900/50 shadow-[0_10px_30px_rgba(239,68,68,0.1)]">
+                <h3 class="text-xs md:text-sm font-black text-red-500 uppercase tracking-[0.25em] mb-5 flex items-center gap-2 alert-header">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    CRITICAL INFRASTRUCTURE ALERTS
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                    <template x-for="t in activeAlerts" :key="'alert-' + t.entity_name">
+                        <div class="glass-panel rounded-xl p-6 flex flex-col justify-between transition-all min-h-[180px] relative overflow-hidden"
+                             :class="{ 
+                                 'status-pulse-red bg-red-950/60 border-red-500/60': t.status === 'stopped' && !isVerifying(t), 
+                                 'status-pulse-amber bg-amber-950/60 border-amber-500/60': t.status === 'stopped' && isVerifying(t),
+                                 'bg-black/95 border-zinc-700 shadow-xl': t.status === 'running' 
+                             }">
+                            
+                            <div class="flex justify-between items-start mb-2 z-10">
+                                <div class="truncate w-full">
+                                    <h4 class="font-black text-white text-lg md:text-xl uppercase tracking-wider truncate drop-shadow" x-text="t.entity_name"></h4>
+                                    <div class="flex flex-wrap items-center gap-2 mt-1.5">
+                                        <div class="text-[10px] 2xl:text-xs font-mono font-black tracking-widest uppercase px-2 py-0.5 rounded inline-block border"
+                                             :class="{
+                                                 'bg-red-900/30 text-red-400 border-red-500/30': t.status === 'stopped' && !isVerifying(t),
+                                                 'bg-amber-900/30 text-amber-500 border-amber-500/30': t.status === 'stopped' && isVerifying(t),
+                                                 'bg-amber-900/30 text-amber-500 border-amber-500/30': t.status === 'running'
+                                             }"
+                                             x-text="t.status === 'stopped' ? (isVerifying(t) ? 'VERIFYING OUTAGE' : 'OFFLINE') : 'CAPACITY WARNING'"></div>
+                                        <div x-show="t.parent_uid" class="text-[9px] 2xl:text-[10px] font-mono font-bold text-amber-300 uppercase tracking-widest px-2 py-0.5 rounded bg-amber-900/30 border border-amber-500/30 shadow-inner">
+                                            🔗 STACK: <span x-text="t.stack_group"></span>
+                                        </div>
+                                        <div x-show="!t.parent_uid" class="text-[9px] 2xl:text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest px-2 py-0.5 rounded bg-black/50 border border-zinc-700/50" x-text="t.location || 'LOCAL'"></div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div x-show="t.status === 'stopped'" class="flex-1 flex flex-col justify-center items-center bg-red-950/50 rounded-lg border border-red-500/30 mt-4 p-3 z-10">
-                            <div class="text-red-500 text-xs font-black uppercase tracking-widest mb-1.5">Failure</div>
-                            <div class="text-red-300 font-mono text-base font-bold" x-text="formatTime(t.down_since)"></div>
-                        </div>
+                            <!-- Offline RCA Context -->
+                            <div x-show="t.status === 'stopped'" class="flex-1 flex flex-col justify-center items-center rounded-lg border mt-4 p-3 z-10"
+                                 :class="isVerifying(t) ? 'bg-amber-950/50 border-amber-500/30' : 'bg-red-950/50 border-red-500/30'">
+                                <div class="text-xs font-black uppercase tracking-widest mb-1.5"
+                                     :class="isVerifying(t) ? 'text-amber-500' : 'text-red-500'"
+                                     x-text="isVerifying(t) ? 'AWAITING CONFIRMATION PINGS' : (t.parent_uid ? 'Isolated Service Fault' : 'Hardware / Node Failure')"></div>
+                                <div class="font-mono text-sm font-bold"
+                                     :class="isVerifying(t) ? 'text-amber-300' : 'text-red-300'"
+                                     x-text="isVerifying(t) ? 'Validating state...' : formatTime(t.down_since)"></div>
+                            </div>
 
-                        <div x-show="t.status === 'running'" class="flex justify-around items-end flex-1 pb-2 pt-4 z-10">
-                            <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
-                                <div class="flex flex-col items-center">
-                                    <div class="dial w-16 h-16 md:w-20 md:h-20 bg-black mb-2 shadow-lg border border-zinc-900" :style="getDialGradient(t.cpu_usage || 0, getCpuColor(t.cpu_usage, t.cpu_threshold))">
-                                        <span class="relative z-10 text-sm md:text-base font-mono font-bold text-white drop-shadow-md" x-text="Math.round(t.cpu_usage || 0) + '%'"></span>
+                            <!-- Capacity Metrics -->
+                            <div x-show="t.status === 'running'" class="flex justify-around items-end flex-1 pb-2 pt-4 z-10">
+                                <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
+                                    <div class="flex flex-col items-center">
+                                        <div class="dial w-16 h-16 md:w-20 md:h-20 bg-black mb-2 shadow-lg border border-zinc-900" :style="getDialGradient(t.cpu_usage || 0, getCpuColor(t.cpu_usage, t.cpu_threshold))">
+                                            <span class="relative z-10 text-sm md:text-base font-mono font-bold text-white drop-shadow-md" x-text="Math.round(t.cpu_usage || 0) + '%'"></span>
+                                        </div>
+                                        <span class="text-[10px] md:text-xs font-black text-zinc-500 tracking-widest uppercase">CPU</span>
                                     </div>
-                                    <span class="text-[10px] md:text-xs font-black text-zinc-500 tracking-widest uppercase">CPU</span>
-                                </div>
-                            </template>
+                                </template>
 
-                            <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
-                                <div class="flex flex-col items-center">
-                                    <div class="dial w-16 h-16 md:w-20 md:h-20 bg-black mb-2 shadow-lg border border-zinc-900" :style="getDialGradient((t.mem_used / Math.max(t.mem_total, 1)) * 100, getRamColor((t.mem_used / Math.max(t.mem_total, 1)) * 100, t.mem_threshold))">
-                                        <span class="relative z-10 text-xs md:text-sm font-mono font-bold text-white drop-shadow-md" x-text="(t.mem_used || 0).toFixed(1) + 'G'"></span>
+                                <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
+                                    <div class="flex flex-col items-center">
+                                        <div class="dial w-16 h-16 md:w-20 md:h-20 bg-black mb-2 shadow-lg border border-zinc-900" :style="getDialGradient((t.mem_used / Math.max(t.mem_total, 1)) * 100, getRamColor((t.mem_used / Math.max(t.mem_total, 1)) * 100, t.mem_threshold))">
+                                            <span class="relative z-10 text-xs md:text-sm font-mono font-bold text-white drop-shadow-md" x-text="(t.mem_used || 0).toFixed(1) + 'G'"></span>
+                                        </div>
+                                        <span class="text-[10px] md:text-xs font-black text-zinc-500 tracking-widest uppercase">RAM</span>
                                     </div>
-                                    <span class="text-[10px] md:text-xs font-black text-zinc-500 tracking-widest uppercase">RAM</span>
-                                </div>
-                            </template>
+                                </template>
 
-                            <template x-if="t.entity_type === 'storage'">
-                                <div class="w-full flex flex-col justify-end h-full px-2">
-                                    <div class="flex justify-between items-end text-[10px] md:text-xs font-black text-zinc-500 uppercase tracking-widest mb-2">
-                                        <span>Usage</span>
-                                        <span class="text-xl font-mono leading-none text-red-500" x-text="((t.disk_used / Math.max(t.disk_total, 1)) * 100).toFixed(1) + '%'"></span>
+                                <template x-if="t.entity_type === 'storage'">
+                                    <div class="w-full flex flex-col justify-end h-full px-2">
+                                        <div class="flex justify-between items-end text-[10px] md:text-xs font-black text-zinc-500 uppercase tracking-widest mb-2">
+                                            <span>Usage</span>
+                                            <span class="text-xl font-mono leading-none text-red-500" x-text="((t.disk_used / Math.max(t.disk_total, 1)) * 100).toFixed(1) + '%'"></span>
+                                        </div>
+                                        <div class="w-full bg-black/60 rounded-full h-3 md:h-4 overflow-hidden border border-zinc-800 shadow-inner">
+                                            <div class="h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(239,68,68,0.4)] bg-red-500" 
+                                                 :style="`width: ${(t.disk_used / Math.max(t.disk_total, 1)) * 100}%`"></div>
+                                        </div>
+                                        <div class="text-[10px] md:text-xs text-right font-mono font-bold text-zinc-400 mt-2" x-text="formatStorage(t.disk_used) + ' / ' + formatStorage(t.disk_total)"></div>
                                     </div>
-                                    <div class="w-full bg-black/60 rounded-full h-3 md:h-4 overflow-hidden border border-zinc-800 shadow-inner">
-                                        <div class="h-full rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(239,68,68,0.4)] bg-red-500" 
-                                             :style="`width: ${(t.disk_used / Math.max(t.disk_total, 1)) * 100}%`"></div>
-                                    </div>
-                                    <div class="text-[10px] md:text-xs text-right font-mono font-bold text-zinc-400 mt-2" x-text="formatStorage(t.disk_used) + ' / ' + formatStorage(t.disk_total)"></div>
-                                </div>
-                            </template>
+                                </template>
+                            </div>
+                            
+                            <div x-show="t.status === 'running' && getSparklinePoints(t)" class="absolute bottom-0 left-0 w-full h-20 opacity-30 pointer-events-none z-0">
+                                <svg class="w-full h-full" viewBox="0 0 100 30" preserveAspectRatio="none">
+                                    <polyline fill="none" stroke="#ef4444" stroke-width="1.5" :points="getSparklinePoints(t)"></polyline>
+                                </svg>
+                            </div>
                         </div>
-                        
-                        <div x-show="t.status === 'running' && getSparklinePoints(t)" class="absolute bottom-0 left-0 w-full h-20 opacity-30 pointer-events-none z-0">
-                            <svg class="w-full h-full" viewBox="0 0 100 30" preserveAspectRatio="none">
-                                <polyline fill="none" stroke="#ef4444" stroke-width="1.5" :points="getSparklinePoints(t)"></polyline>
-                            </svg>
-                        </div>
-                    </div>
-                </template>
+                    </template>
+                </div>
             </div>
-        </div>
 
-        <!-- INFRASTRUCTURE BENTO-GRID (Nominal Sensors - Dimmed) -->
-        <div class="flex-1 flex flex-col gap-8 md:gap-10 min-h-0">
-            <template x-for="category in categories" :key="category.id">
-                <div x-show="getFiltered(category.filter).length > 0" class="flex flex-col">
-                    <h3 class="text-xs lg:text-sm font-black text-zinc-600 uppercase tracking-[0.25em] mb-5 border-b border-zinc-800/30 pb-2" x-text="category.title"></h3>
+            <!-- DYNAMIC TABBED CONTENT GRID -->
+            <div class="flex-1 flex flex-col min-h-0">
+                
+                <!-- Display when looking at Dormant Infrastructure -->
+                <div x-show="activeView === 'dormant'" class="flex flex-col h-full">
+                    <div x-show="pausedTargets.length === 0" class="text-center text-zinc-600 font-mono text-xs mt-10 uppercase tracking-widest">
+                        No dormant or paused infrastructure.
+                    </div>
                     
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                        <template x-for="t in pausedTargets" :key="'paused-' + t.uid">
+                            <div class="status-paused rounded-xl p-5 flex flex-col justify-between border">
+                                <h4 class="font-black text-zinc-400 text-sm uppercase tracking-wider truncate mb-3" x-text="t.entity_name"></h4>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-[10px] font-mono font-black text-zinc-500 uppercase tracking-widest" x-text="t.entity_type"></span>
+                                    <span class="text-[9px] font-mono font-bold text-zinc-600 uppercase tracking-widest px-2 py-0.5 rounded bg-black border border-zinc-800">PAUSED</span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Display when looking at Active Tabs (Overview, Compute, Storage, etc) -->
+                <div x-show="activeView !== 'dormant'" class="flex flex-col h-full">
+                    <div x-show="filteredTargets.length === 0" class="text-center text-zinc-600 font-mono text-xs mt-10 uppercase tracking-widest">
+                        No active infrastructure in this category.
+                    </div>
+
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-                        <template x-for="t in getFiltered(category.filter)" :key="t.entity_name">
-                            <div class="card-nominal rounded-xl p-5 md:p-6 flex flex-col justify-between transition-all min-h-[170px] relative overflow-hidden"
-                                 :class="t.is_enabled === 0 ? 'status-paused' : ''">
+                        <template x-for="t in filteredTargets" :key="t.uid">
+                            <div class="card-nominal rounded-xl p-5 md:p-6 flex flex-col justify-between transition-all min-h-[170px] relative overflow-hidden shadow-lg">
                                 
                                 <div class="flex justify-between items-start mb-2 z-10">
                                     <div class="truncate w-full">
-                                        <h4 class="font-black text-white/90 text-lg md:text-xl uppercase tracking-wider truncate" x-text="t.entity_name"></h4>
-                                        <div class="flex items-center gap-2 mt-1.5">
-                                            <div class="text-[10px] 2xl:text-xs font-mono font-black tracking-widest uppercase px-2 py-0.5 rounded inline-block border"
-                                                 :class="t.is_enabled === 0 ? 'bg-zinc-900 border-zinc-700 text-zinc-500' : 'bg-[#39ff14]/5 text-neon-green/80 border-neon-green/20'"
-                                                 x-text="t.is_enabled === 0 ? 'PAUSED' : 'ONLINE'"></div>
-                                            <div class="text-[9px] 2xl:text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest px-2 py-0.5 rounded bg-black/40 border border-zinc-800/50" x-text="t.location || 'LOCAL'"></div>
+                                        <h4 class="font-black text-white/90 text-lg md:text-xl uppercase tracking-wider truncate drop-shadow" x-text="t.entity_name"></h4>
+                                        <div class="flex flex-wrap items-center gap-2 mt-1.5">
+                                            <div class="text-[10px] 2xl:text-xs font-mono font-black tracking-widest uppercase px-2 py-0.5 rounded inline-block border bg-[#39ff14]/5 text-neon-green/80 border-neon-green/20">ONLINE</div>
+                                            <!-- RCA Badge -->
+                                            <div x-show="t.parent_uid" class="text-[9px] 2xl:text-[10px] font-mono font-bold text-neon-purple uppercase tracking-widest px-2 py-0.5 rounded bg-neon-purple/10 border border-neon-purple/30 shadow-inner">
+                                                🔗 STACK: <span x-text="t.stack_group"></span>
+                                            </div>
+                                            <div x-show="!t.parent_uid" class="text-[9px] 2xl:text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest px-2 py-0.5 rounded bg-black/40 border border-zinc-800/50" x-text="t.location || 'LOCAL'"></div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div x-show="t.is_enabled === 1" class="flex justify-around items-end flex-1 pb-1 pt-4 z-10">
+                                <div class="flex justify-around items-end flex-1 pb-1 pt-4 z-10">
                                     <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
                                         <div class="flex flex-col items-center opacity-90">
                                             <div class="dial w-14 h-14 md:w-16 md:h-16 2xl:w-20 2xl:h-20 bg-black/80 mb-2 border border-zinc-900 shadow-inner" :style="getDialGradient(t.cpu_usage || 0, getCpuColor(t.cpu_usage, t.cpu_threshold))">
@@ -392,28 +535,28 @@
                                     </template>
 
                                     <template x-if="t.entity_type === 'network'">
-                                        <div class="w-full bg-black/40 rounded py-4 border border-zinc-800/30 flex flex-col items-center justify-center h-full shadow-inner opacity-90">
+                                        <div class="w-full bg-black/40 rounded-xl py-4 border border-zinc-800/30 flex flex-col items-center justify-center h-full shadow-inner opacity-90">
                                             <span class="text-[10px] md:text-xs font-black text-zinc-600 uppercase tracking-widest mb-1.5">Latency</span>
                                             <span class="text-3xl 2xl:text-4xl font-mono font-black text-neon-green/90" x-text="(t.ping_ms || 0).toFixed(0) + 'ms'"></span>
                                         </div>
                                     </template>
                                     
                                     <template x-if="t.entity_type === 'http'">
-                                        <div class="w-full bg-black/40 rounded py-4 border border-zinc-800/30 flex flex-col items-center justify-center h-full shadow-inner opacity-90">
+                                        <div class="w-full bg-black/40 rounded-xl py-4 border border-zinc-800/30 flex flex-col items-center justify-center h-full shadow-inner opacity-90">
                                             <span class="text-[10px] md:text-xs font-black text-cyan-700 uppercase tracking-widest mb-1.5">Response Time</span>
                                             <span class="text-3xl 2xl:text-4xl font-mono font-black text-cyan-400/90" x-text="(t.ping_ms || 0).toFixed(0) + 'ms'"></span>
                                         </div>
                                     </template>
 
                                     <template x-if="t.entity_type === 'app'">
-                                        <div class="w-full bg-black/40 rounded py-4 border border-zinc-800/30 flex flex-col items-center justify-center h-full shadow-inner opacity-90">
-                                            <span class="text-[10px] md:text-xs font-black text-zinc-600 uppercase tracking-widest mb-1.5">TCP Port</span>
-                                            <span class="text-lg 2xl:text-xl font-mono font-black text-neon-purple/90 uppercase tracking-widest">ACTIVE</span>
+                                        <div class="w-full bg-black/40 rounded-xl py-4 border border-zinc-800/30 flex flex-col items-center justify-center h-full shadow-inner opacity-90">
+                                            <span class="text-[10px] md:text-xs font-black text-zinc-600 uppercase tracking-widest mb-1.5">App Status</span>
+                                            <span class="text-xl 2xl:text-2xl font-mono font-black text-neon-purple/90 uppercase tracking-widest">ACTIVE</span>
                                         </div>
                                     </template>
                                 </div>
                                 
-                                <div x-show="t.is_enabled === 1 && getSparklinePoints(t)" class="absolute bottom-0 left-0 w-full h-16 opacity-15 pointer-events-none z-0">
+                                <div x-show="getSparklinePoints(t)" class="absolute bottom-0 left-0 w-full h-16 opacity-15 pointer-events-none z-0">
                                     <svg class="w-full h-full" viewBox="0 0 100 30" preserveAspectRatio="none">
                                         <polyline fill="none" :stroke="(t.entity_type === 'network' || t.entity_type === 'http') ? '#39ff14' : 'rgba(255,255,255,0.4)'" stroke-width="1.5" :points="getSparklinePoints(t)"></polyline>
                                     </svg>
@@ -422,7 +565,8 @@
                         </template>
                     </div>
                 </div>
-            </template>
+                
+            </div>
         </div>
     </div>
 
@@ -430,6 +574,7 @@
         function nocApp() {
             return {
                 isLoading: true,
+                isDisplayMode: false,
                 targets: [],
                 sparklines: {},
                 pihole: {},
@@ -454,19 +599,31 @@
 
                 wanName: 'WAN ROUTING',
                 wanPing: 0,
+                wanLoss: 0.0,
+                wanJitter: 0.0,
                 wanStatus: 'pending',
                 
                 storageAgg: { used: 0, total: 0, percent: 0 },
                 gameAgg: { online: 0, total: 0 },
+                dockerAgg: { online: 0, total: 0 },
+                mediaAgg: { online: 0, total: 0 },
 
                 chartObj: null,
 
-                categories: [
-                    { id: 'proxmox', title: 'Virtualization & Compute', filter: ['vm', 'lxc'] },
-                    { id: 'storage', title: 'Data Stores & NAS', filter: ['storage'] },
-                    { id: 'games', title: 'Game Fleet', filter: ['game'] },
-                    { id: 'services', title: 'Core Applications & Network', filter: ['network', 'app', 'http'] }
-                ],
+                activeView: 'overview',
+                mobileMenuOpen: false,
+
+                get viewTitle() {
+                    const map = {
+                        'overview': 'Fleet Overview',
+                        'compute': 'Compute & VMs',
+                        'storage': 'Storage Arrays',
+                        'apps': 'Apps & Network',
+                        'games': 'Game Fleet',
+                        'dormant': 'Dormant Infrastructure'
+                    };
+                    return map[this.activeView];
+                },
 
                 initApp() {
                     const updateTime = () => { this.sysTime = new Date().toLocaleTimeString('en-US', { hour12: false }); };
@@ -501,6 +658,27 @@
                         setInterval(() => this.fetchData(), 10000);
                     });
                 },
+                
+                toggleDisplayMode() {
+                    if (!document.fullscreenElement) {
+                        document.documentElement.requestFullscreen().catch(e => {
+                            console.warn("Fullscreen request failed", e);
+                        });
+                    } else {
+                        if (document.exitFullscreen) {
+                            document.exitFullscreen();
+                        }
+                    }
+                },
+                
+                scrollToGrid() {
+                    this.$nextTick(() => {
+                        const el = document.getElementById('grid-top');
+                        if (el) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    });
+                },
 
                 hasPriority(key) {
                     return this.hudPriorities.includes(key);
@@ -508,8 +686,18 @@
 
                 async fetchData() {
                     try {
-                        const res = await fetch('/api/live');
+                        const jwtToken = sessionStorage.getItem('noc_jwt') || '';
+                        const headers = jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {};
+                        
+                        const res = await fetch('/api/live', { headers });
+                        
+                        if (res.status === 401) {
+                            sessionStorage.removeItem('noc_jwt');
+                            return this.fetchData();
+                        }
+                        
                         const json = await res.json();
+                        
                         if (json.status === 'success') {
                             if (json.is_setup_complete === false) {
                                 window.location.href = '/setup';
@@ -521,7 +709,7 @@
                             
                             const settings = json.settings || {};
                             this.isMuted = (settings.global_mute === '1');
-                            this.hudPriorities = (settings.hud_priorities || 'proxmox,pihole').split(',');
+                            this.hudPriorities = (settings.hud_priorities || '').split(',');
                             
                             this.piholeLoaded = Object.keys(this.pihole).length > 0;
                             const ps = (this.pihole.status || '').toLowerCase();
@@ -557,32 +745,44 @@
                                 this.wanName = wan.entity_name;
                                 this.wanPing = (wan.ping_ms || 0).toFixed(0);
                                 this.wanStatus = wan.status || 'pending';
+                                this.wanLoss = (wan.packet_loss || 0.0).toFixed(1);
+                                this.wanJitter = (wan.jitter_ms || 0.0).toFixed(1);
                             } else {
                                 this.wanName = 'WAN ROUTING';
                                 this.wanPing = 0;
                                 this.wanStatus = 'pending';
+                                this.wanLoss = 0.0;
+                                this.wanJitter = 0.0;
                             }
 
-                            // Dynamic Aggregations for Storage & Games
-                            let sUsed = 0; let sTot = 0;
-                            let gOn = 0; let gTot = 0;
+                            // Dynamic Aggregations for HUD Panels
+                            let sUsed = 0, sTot = 0, gOn = 0, gTot = 0, dOn = 0, dTot = 0, mOn = 0, mTot = 0;
+                            
                             this.targets.forEach(t => {
-                                if (t.entity_type === 'storage' && t.is_enabled === 1) {
-                                    sUsed += (t.disk_used || 0);
-                                    sTot += (t.disk_total || 0);
-                                }
-                                if (t.entity_type === 'game' && t.is_enabled === 1) {
-                                    gTot++;
-                                    if (t.status === 'running') gOn++;
+                                if (t.is_enabled === 1) {
+                                    if (t.entity_type === 'storage') {
+                                        sUsed += (t.disk_used || 0);
+                                        sTot += (t.disk_total || 0);
+                                    }
+                                    if (t.entity_type === 'game') {
+                                        gTot++;
+                                        if (t.status === 'running') gOn++;
+                                    }
+                                    if (t.uid.startsWith('dkr_')) {
+                                        dTot++;
+                                        if (t.status === 'running') dOn++;
+                                    }
+                                    if (t.uid.startsWith('app_jellyfin') || t.uid.startsWith('app_plex')) {
+                                        mTot++;
+                                        if (t.status === 'running') mOn++;
+                                    }
                                 }
                             });
                             
-                            this.storageAgg = {
-                                used: sUsed,
-                                total: sTot,
-                                percent: sTot > 0 ? (sUsed / sTot) * 100 : 0
-                            };
+                            this.storageAgg = { used: sUsed, total: sTot, percent: sTot > 0 ? (sUsed / sTot) * 100 : 0 };
                             this.gameAgg = { online: gOn, total: gTot };
+                            this.dockerAgg = { online: dOn, total: dTot };
+                            this.mediaAgg = { online: mOn, total: mTot };
                             
                             // WAN Chart Updates
                             if (json.wan_history && json.wan_history.length > 0) {
@@ -596,10 +796,22 @@
                     } catch (e) {}
                 },
 
+                isVerifying(t) {
+                    if (!t.down_since) return false;
+                    const downFor = (Date.now() / 1000) - t.down_since;
+                    return downFor < 30; // 30 second anti-panic grace period (~3 polls)
+                },
+
                 isActiveAlert(t) {
                     if (t.is_enabled === 0) return false;
                     if (t.entity_type === 'host') return false;
                     if (t.entity_type === 'network' && t.location === 'WAN') return false;
+                    
+                    // RCA Logic for UI
+                    if (t.parent_uid) {
+                        const parent = this.targets.find(p => p.uid === t.parent_uid);
+                        if (parent && parent.status === 'stopped') return false;
+                    }
 
                     if (t.status === 'stopped') return true;
                     
@@ -630,7 +842,7 @@
 
                     const totalActive = displayedTargets.length;
                     const online = displayedTargets.filter(t => t.status === 'running').length;
-                    const offline = displayedTargets.filter(t => t.status === 'stopped').length;
+                    const offline = displayedTargets.filter(t => t.status === 'stopped' && !this.isVerifying(t)).length;
                     const paused = this.targets.filter(t => t.is_enabled === 0).length;
                     const alerts = this.activeAlerts.length;
                     
@@ -641,17 +853,34 @@
                     return this.targets.filter(t => this.isActiveAlert(t));
                 },
 
-                getFiltered(types) {
+                get activeTargets() {
                     return this.targets.filter(t => 
-                        types.includes(t.entity_type) && 
+                        t.is_enabled === 1 && 
                         t.entity_type !== 'host' && 
                         !(t.entity_type === 'network' && t.location === 'WAN') &&
                         !this.isActiveAlert(t)
                     );
                 },
 
+                get pausedTargets() {
+                    return this.targets.filter(t => t.is_enabled === 0);
+                },
+
+                get filteredTargets() {
+                    const active = this.activeTargets;
+                    if (this.activeView === 'overview') return active;
+                    
+                    return active.filter(t => {
+                        if (this.activeView === 'compute') return ['vm', 'lxc'].includes(t.entity_type);
+                        if (this.activeView === 'storage') return t.entity_type === 'storage';
+                        if (this.activeView === 'apps') return ['app', 'http', 'network'].includes(t.entity_type);
+                        if (this.activeView === 'games') return t.entity_type === 'game';
+                        return false;
+                    });
+                },
+
                 getSparklinePoints(t) {
-                    const key = t.entity_name + '_' + t.entity_type;
+                    const key = t.uid;
                     const dataObj = this.sparklines[key];
                     if (!dataObj) return '';
                     const data = (t.entity_type === 'network' || t.entity_type === 'http') ? dataObj.ping : dataObj.cpu;
@@ -710,6 +939,15 @@
     </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
 
 
 
