@@ -7,7 +7,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  # Hardcoded to strict lowercase to prevent Docker build crashes
   IMAGE_NAME: cbiscuit456/hacknet-noc
 
 jobs:
@@ -34,8 +33,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
+            type=raw,value=latest
+            type=ref,event=branch
+            type=ref,event=tag
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -46,4 +46,5 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
           
+
           
