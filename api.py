@@ -14,8 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
-
 import sqlite3
 import os
 import uuid
@@ -685,14 +683,14 @@ def live_data(authorization: str = Header(None)):
         cursor.execute('''
             SELECT t.uid, t.name AS entity_name, t.entity_type, t.is_enabled, t.down_since, t.target_address, t.port, 
                    t.cooldown_interval, t.cpu_threshold, t.mem_threshold, t.location, t.parent_uid, t.stack_group,
-                   m.status, m.cpu_usage, m.mem_used, m.mem_total, m.disk_used, m.disk_total, m.ping_ms, m.packet_loss, m.jitter_ms
+                   m.status, m.cpu_usage, m.mem_used, m.mem_total, m.disk_used, m.disk_total, m.ping_ms, m.packet_loss, m.jitter_ms, m.net_in, m.net_out
             FROM monitored_targets t
             LEFT JOIN latest_metrics m ON m.uid = t.uid
             ORDER BY CASE t.entity_type WHEN 'network' THEN 1 WHEN 'host' THEN 2 WHEN 'storage' THEN 3 WHEN 'lxc' THEN 4 WHEN 'vm' THEN 5 WHEN 'app' THEN 6 WHEN 'http' THEN 7 WHEN 'game' THEN 8 ELSE 9 END, LOWER(t.name) ASC
         ''')
         targets = [dict(r) for r in cursor.fetchall()]
 
-        safe_keys = ['global_mute', 'hud_priorities', 'is_setup_complete']
+        safe_keys = ['global_mute', 'hud_priorities', 'is_setup_complete', 'host_uptime']
         placeholders = ','.join(['?'] * len(safe_keys))
         cursor.execute(f'SELECT key, value FROM sys_settings WHERE key IN ({placeholders})', safe_keys)
         settings = {r['key']: r['value'] for r in cursor.fetchall()}
@@ -907,6 +905,8 @@ def serve_setup():
 @app.get("/admin")
 def serve_admin(): 
     return FileResponse("static/admin.html")
+
+    
 
     
     
