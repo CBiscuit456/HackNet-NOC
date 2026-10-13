@@ -562,7 +562,9 @@ class ESXiPlugin(BasePlugin):
 
                     if self.ctx.cfg.get(v_uid, {}).get('enabled', 1) != 0:
                         status = 'running' if vm.get('power_state') == 'POWERED_ON' else 'stopped'
-                        self.ctx.metrics_batch.append((v_uid, vm_name, 'vm', status, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+                        # Patch ESXi "Zero Metrics" hole by capturing max memory (default REST API limits live usage query without perfMgr)
+                        v_mt = (vm.get('memory_size_MiB') or 1024) / 1024.0
+                        self.ctx.metrics_batch.append((v_uid, vm_name, 'vm', status, 0.0, 0.0, v_mt, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
                     else:
                         self.ctx.metrics_batch.append((v_uid, vm_name, 'vm', 'paused', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
 
@@ -1011,8 +1013,12 @@ def collect_and_store():
                                   silent_resolve=False, settings=settings, alert_updates=alert_updates, notification_queue=notification_queue, event_logs=event_logs)
             else:
                 if db_down != 0.0: downtime_updates.append((0.0, uid))
+                
+                # FIX: Build dynamic recovery body so notifications have proper context instead of an empty string
+                recover_body = f"✅ <b>SYSTEM RECOVERED</b> ✅\n\n<b>Entity:</b> {name}\n<b>Status:</b> Back Online and responding."
+                
                 process_alert(uid=uid, entity_name=name, metric='offline', condition_met=False, trigger_count=3, 
-                              alert_body="", recover_body="", log_trigger="", log_recover="Service is back online.",
+                              alert_body="", recover_body=recover_body, log_trigger="", log_recover="Service is back online.",
                               down_since=db_down, is_game=is_game, global_mute=global_mute, cooldown_interval=cldn, 
                               silent_resolve=False, settings=settings, alert_updates=alert_updates, notification_queue=notification_queue, event_logs=event_logs)
                 
@@ -1136,6 +1142,10 @@ if __name__ == "__main__":
                 except Exception: pass
 
     except KeyboardInterrupt: pass
+
+    
+
+
 
     
 

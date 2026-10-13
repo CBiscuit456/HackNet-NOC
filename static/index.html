@@ -9,73 +9,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
-    <style>
-        [x-cloak] { display: none !important; }
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700;800&display=swap');
-        
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background: radial-gradient(circle at 50% 0%, #111827 0%, #000000 80%);
-            color: #e4e4e7; 
-            margin: 0; padding: 0;
-            overflow: hidden;
-            height: 100vh;
-        }
-        
-        .font-mono { font-family: 'JetBrains Mono', monospace; }
-
-        .glass-panel {
-            background: rgba(20, 24, 30, 0.7); 
-            backdrop-filter: blur(20px); 
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255,255,255,0.05);
-        }
-
-        .hud-panel {
-            background: rgba(12, 15, 20, 0.85);
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-bottom: 2px solid #39ff14;
-            box-shadow: 0 10px 40px -10px rgba(57, 255, 20, 0.15), inset 0 1px 0 rgba(255,255,255,0.05);
-        }
-
-        .card-nominal {
-            background: rgba(10, 12, 16, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .status-pulse-red { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); animation: pulseRed 2s infinite; border-color: rgba(239, 68, 68, 0.6); background: rgba(69, 10, 10, 0.4) !important; }
-        .status-pulse-amber { box-shadow: 0 0 20px rgba(245, 158, 11, 0.3); animation: pulseAmber 2s infinite; border-color: rgba(245, 158, 11, 0.6); background: rgba(69, 26, 3, 0.4) !important; }
-        .status-paused { opacity: 0.5; filter: grayscale(100%); border-color: rgba(255,255,255,0.05); background: rgba(10,10,10,0.5); }
-        
-        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); } 70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
-        @keyframes pulseAmber { 0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); } 70% { box-shadow: 0 0 0 15px rgba(245, 158, 11, 0); } 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); } }
-        @keyframes pulseAlertText { 0% { opacity: 0.7; } 50% { opacity: 1; text-shadow: 0 0 15px rgba(239,68,68,0.8); } 100% { opacity: 0.7; } }
-        
-        .alert-header { animation: pulseAlertText 2s infinite; }
-
-        .dial {
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; position: relative;
-        }
-        .dial::before {
-            content: ''; position: absolute; inset: 5px; background: rgba(12, 12, 12, 1); border-radius: 50%;
-        }
-        
-        .text-neon-green { color: #39ff14; }
-        .text-neon-purple { color: #b026ff; }
-        .border-neon-green { border-color: #39ff14; }
-        
-        .nav-item { transition: all 0.2s ease-in-out; }
-        .nav-item.active { background: rgba(57, 255, 20, 0.1); color: #39ff14; border-right: 3px solid #39ff14; }
-        .nav-item:hover:not(.active) { background: rgba(255, 255, 255, 0.05); color: white; }
-
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
-        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
-        .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgba(57, 255, 20, 0.5); }
-    </style>
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body class="flex flex-col md:flex-row" x-data="nocApp()" x-init="initApp()" @fullscreenchange.window="isDisplayMode = !!document.fullscreenElement" x-cloak>
 
@@ -106,52 +40,71 @@
         Exit Display Mode
     </button>
 
-    <!-- SIDEBAR NAVIGATION -->
-    <div x-show="!isDisplayMode" class="w-full md:w-64 glass-panel border-r border-zinc-800/80 flex flex-col shrink-0 relative z-30 h-auto md:h-full transition-all duration-300">
-        <div class="p-6 border-b border-zinc-800/80 flex justify-between items-center md:block">
+    <!-- ========================================== -->
+    <!-- MOBILE TOP HEADER (Hidden on Desktop)      -->
+    <!-- ========================================== -->
+    <div x-show="!isDisplayMode" class="md:hidden w-full glass-panel border-b border-zinc-800/80 flex justify-between items-center p-4 shrink-0 relative z-40">
+        <div>
+            <h1 class="text-xl font-black text-white tracking-tighter drop-shadow-lg">
+                HACKNET <span class="text-neon-green">NOC</span>
+            </h1>
+            <p class="text-zinc-500 font-mono text-[9px] mt-1 uppercase tracking-[0.2em] font-bold">v3.0.0 LVE</p>
+        </div>
+        <!-- Mobile Quick Actions -->
+        <div class="flex items-center gap-3">
+            <button @click="toggleDisplayMode()" class="w-9 h-9 flex items-center justify-center rounded-full bg-cyan-950/40 border border-cyan-900/50 text-cyan-400 shadow-inner">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+            </button>
+            <a href="/admin" class="w-9 h-9 flex items-center justify-center rounded-full bg-zinc-900/60 border border-zinc-700 text-zinc-300 hover:text-neon-green shadow-inner">
+                <svg class="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            </a>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- DESKTOP SIDEBAR (Hidden on Mobile)         -->
+    <!-- ========================================== -->
+    <div x-show="!isDisplayMode" class="hidden md:flex w-64 glass-panel border-r border-zinc-800/80 flex-col shrink-0 relative z-30 h-full transition-all duration-300">
+        <div class="p-6 border-b border-zinc-800/80">
             <div>
                 <h1 class="text-2xl font-black text-white tracking-tighter drop-shadow-lg">
                     HACKNET <span class="text-neon-green">NOC</span>
                 </h1>
-                <p class="text-zinc-500 font-mono text-[9px] mt-1 uppercase tracking-[0.2em] font-bold">v2.8.ENT Live Matrix</p>
+                <p class="text-zinc-500 font-mono text-[9px] mt-1 uppercase tracking-[0.2em] font-bold">v3.0.0 LVE Live Matrix</p>
             </div>
-            <!-- Mobile Toggle -->
-            <button @click="mobileMenuOpen = !mobileMenuOpen" class="md:hidden text-zinc-400 hover:text-white">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-            </button>
         </div>
 
-        <nav class="flex-1 overflow-y-auto py-4 flex flex-col gap-1 px-3" :class="{'hidden md:flex': !mobileMenuOpen}">
-            <button @click="activeView = 'overview'; mobileMenuOpen = false; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-400" :class="activeView === 'overview' ? 'active' : ''">
+        <nav class="flex-1 overflow-y-auto py-4 flex flex-col gap-1 px-3">
+            <button @click="activeView = 'overview'; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-400" :class="activeView === 'overview' ? 'active' : ''">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
                 Fleet Overview
             </button>
-            <button @click="activeView = 'compute'; mobileMenuOpen = false; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-400" :class="activeView === 'compute' ? 'active' : ''">
+            <button @click="activeView = 'compute'; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-400" :class="activeView === 'compute' ? 'active' : ''">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg>
                 Compute & VMs
             </button>
-            <button @click="activeView = 'storage'; mobileMenuOpen = false; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-400" :class="activeView === 'storage' ? 'active' : ''">
+            <button @click="activeView = 'storage'; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-400" :class="activeView === 'storage' ? 'active' : ''">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
                 Storage Arrays
             </button>
-            <button @click="activeView = 'apps'; mobileMenuOpen = false; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-400" :class="activeView === 'apps' ? 'active' : ''">
+            <button @click="activeView = 'apps'; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-400" :class="activeView === 'apps' ? 'active' : ''">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
                 Apps & Network
             </button>
-            <button @click="activeView = 'games'; mobileMenuOpen = false; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-400" :class="activeView === 'games' ? 'active' : ''">
+            <button @click="activeView = 'games'; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-400" :class="activeView === 'games' ? 'active' : ''">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 Game Fleet
             </button>
             
             <div class="mt-4 mb-2 border-t border-zinc-800/80 mx-4"></div>
             
-            <button @click="activeView = 'dormant'; mobileMenuOpen = false; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-500 hover:text-zinc-300" :class="activeView === 'dormant' ? 'bg-white/5 text-white border-r-2 border-white' : ''">
+            <button @click="activeView = 'dormant'; scrollToGrid()" class="nav-item w-full text-left px-4 py-3 rounded font-black text-xs uppercase tracking-widest flex items-center gap-3 text-zinc-500 hover:text-zinc-300" :class="activeView === 'dormant' ? 'bg-white/5 text-white border-r-2 border-white' : ''">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 Dormant & Paused
             </button>
         </nav>
 
-        <div class="p-6 border-t border-zinc-800/80 mt-auto hidden md:block">
+        <div class="p-6 border-t border-zinc-800/80 mt-auto">
             <button @click="toggleDisplayMode()" class="w-full px-4 py-3 bg-cyan-950/30 border border-cyan-900/50 text-cyan-500 hover:bg-cyan-500/20 hover:text-white rounded text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 mb-3 backdrop-blur-md">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
                 Display Mode
@@ -167,83 +120,95 @@
     <div class="flex-1 flex flex-col relative z-20 h-full overflow-hidden">
         
         <!-- HEADER (Time & Status) -->
-        <div class="px-6 py-4 md:px-10 md:py-6 flex justify-between items-center border-b border-zinc-800/30 shrink-0 bg-black/20">
-            <h2 class="text-lg md:text-xl font-black text-white uppercase tracking-widest hidden md:block" x-text="viewTitle"></h2>
-            <div class="flex items-center gap-3 text-[10px] md:text-xs lg:text-sm font-mono text-zinc-400 font-bold uppercase tracking-widest w-full md:w-auto justify-between md:justify-end">
-                <span class="flex items-center gap-2">
+        <div class="px-4 md:px-10 py-3 md:py-6 flex justify-between items-center border-b border-zinc-800/30 shrink-0 bg-black/20">
+            <h2 class="text-sm md:text-xl font-black text-white uppercase tracking-widest md:block" x-text="viewTitle"></h2>
+            <div class="flex items-center gap-3 text-[10px] md:text-xs lg:text-sm font-mono text-zinc-400 font-bold uppercase tracking-widest justify-end">
+                <span class="flex items-center gap-2 hidden md:flex">
                     <div class="w-2.5 h-2.5 rounded-full bg-neon-green animate-pulse" x-show="!isMuted"></div>
                     <div class="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" x-show="isMuted"></div>
                     <span class="text-white" x-text="isMuted ? 'ALERTS MUTED' : 'SYSTEM LIVE'"></span>
                 </span>
-                <span class="text-zinc-700 hidden sm:inline">//</span>
+                <span class="text-zinc-700 hidden md:inline">//</span>
                 <span class="text-white" x-text="'TIME: ' + sysTime"></span>
             </div>
         </div>
 
-        <div class="flex-1 overflow-y-auto custom-scroll p-4 md:p-6 lg:p-8 xl:p-10 flex flex-col">
+        <!-- MAIN SCROLL CONTAINER -->
+        <!-- Note: We use top-[-1rem] on the sticky nav below to negate the pt-4 padding here and snap flush. -->
+        <div class="flex-1 overflow-y-auto custom-scroll px-4 pt-4 pb-6 md:p-6 lg:p-8 xl:p-10 flex flex-col">
             
             <!-- THE UNIFIED DYNAMIC HUD (Permanent Anchorage) -->
-            <div class="hud-panel rounded-xl mb-8 shrink-0 flex flex-col xl:flex-row w-full z-20 overflow-hidden divide-y xl:divide-y-0 xl:divide-x divide-zinc-800/80">
+            <div class="hud-panel rounded-xl mb-6 md:mb-8 shrink-0 flex flex-col xl:flex-row w-full z-20 overflow-hidden divide-y md:divide-y xl:divide-y-0 md:divide-x divide-zinc-800/80">
                 
                 <!-- STATIC PANEL 1: FLEET HEALTH -->
-                <div class="w-full xl:w-1/6 p-5 md:p-6 lg:p-8 flex flex-col justify-between bg-black/20">
+                <div class="w-full xl:w-1/6 p-4 md:p-6 lg:p-8 flex flex-row md:flex-col justify-between items-center md:items-start bg-black/20">
                     <div>
-                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Fleet Health</h2>
-                        <div class="text-4xl lg:text-5xl 2xl:text-6xl font-black font-mono text-white drop-shadow-md mt-1 2xl:mt-3" x-text="fleetStatus.online + '/' + fleetStatus.totalActive"></div>
+                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-0 md:mb-1">Fleet Health</h2>
+                        <div class="text-2xl md:text-4xl lg:text-5xl 2xl:text-6xl font-black font-mono text-white drop-shadow-md mt-0 md:mt-1 2xl:mt-3 leading-none" x-text="fleetStatus.online + '/' + fleetStatus.totalActive"></div>
                     </div>
-                    <div class="flex flex-col gap-2 mt-6 text-[10px] md:text-xs 2xl:text-sm font-mono font-bold uppercase tracking-widest">
+                    <!-- FIX: Added w-full so justify-between functions correctly on desktop -->
+                    <div class="w-full flex flex-row md:flex-col gap-3 md:gap-2 mt-0 md:mt-6 text-[9px] md:text-[10px] md:text-xs 2xl:text-sm font-mono font-bold uppercase tracking-widest text-right md:text-left">
                         <div class="flex justify-between items-center text-red-500" x-show="fleetStatus.offline > 0">
-                            <span>Offline</span> <span x-text="fleetStatus.offline"></span>
+                            <span class="hidden md:inline">Offline</span><span class="md:hidden">OFF:</span> <span class="ml-1 md:ml-0" x-text="fleetStatus.offline"></span>
                         </div>
                         <div class="flex justify-between items-center text-amber-500" x-show="fleetStatus.alerts > 0">
-                            <span>Alerts</span> <span x-text="fleetStatus.alerts"></span>
+                            <span class="hidden md:inline">Alerts</span><span class="md:hidden">ALR:</span> <span class="ml-1 md:ml-0" x-text="fleetStatus.alerts"></span>
                         </div>
                         <div class="flex justify-between items-center text-neon-green" x-show="fleetStatus.offline === 0 && fleetStatus.alerts === 0">
-                            <span>Nominal</span> <span>OK</span>
+                            <span>Nominal</span> <span class="hidden md:inline">OK</span>
                         </div>
-                        <div class="flex justify-between items-center text-zinc-600 border-t border-zinc-800/80 pt-2 mt-1" x-show="fleetStatus.paused > 0">
+                        <div class="hidden md:flex justify-between items-center text-zinc-600 border-t border-zinc-800/80 pt-2 mt-1" x-show="fleetStatus.paused > 0">
                             <span>Dormant</span> <span x-text="fleetStatus.paused"></span>
                         </div>
                     </div>
                 </div>
 
                 <!-- STATIC PANEL 2: WAN ROUTING -->
-                <div class="w-full xl:w-1/4 p-5 md:p-6 lg:p-8 flex flex-col relative overflow-hidden bg-black/20" :class="wanStatus === 'stopped' ? 'bg-red-950/20' : ''">
-                    <div class="flex justify-between items-start z-10 w-full h-full flex-col">
+                <div class="w-full xl:w-1/4 p-4 md:p-6 lg:p-8 flex flex-col relative overflow-hidden bg-black/20" :class="wanStatus === 'stopped' ? 'bg-red-950/20' : ''">
+                    <div class="flex flex-row md:flex-col justify-between items-center md:items-start z-10 w-full h-full">
                         <div>
                             <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase" x-text="wanName"></h2>
-                            <div class="font-black font-mono mt-1 2xl:mt-3 drop-shadow-md" 
-                                 :class="wanStatus === 'pending' ? 'text-amber-500 animate-pulse text-2xl lg:text-3xl 2xl:text-4xl' : (wanStatus === 'stopped' ? 'text-red-500 text-4xl lg:text-5xl 2xl:text-6xl' : 'text-neon-green text-4xl lg:text-5xl 2xl:text-6xl')" 
+                            <div class="font-black font-mono mt-0 md:mt-1 2xl:mt-3 drop-shadow-md leading-none" 
+                                 :class="wanStatus === 'pending' ? 'text-amber-500 animate-pulse text-lg md:text-2xl lg:text-3xl 2xl:text-4xl' : (wanStatus === 'stopped' ? 'text-red-500 text-2xl md:text-4xl lg:text-5xl 2xl:text-6xl' : 'text-neon-green text-2xl md:text-4xl lg:text-5xl 2xl:text-6xl')" 
                                  x-text="wanStatus === 'pending' ? 'AWAITING DATA' : (wanStatus === 'stopped' ? 'OFFLINE' : wanPing + ' ms')"></div>
                         </div>
-                        <div x-show="wanStatus === 'running'" class="flex gap-4 mt-auto pt-6 text-[10px] lg:text-xs 2xl:text-sm font-mono font-bold uppercase tracking-widest text-zinc-500 w-full justify-between">
-                            <div>JITTER: <span class="text-white" x-text="wanJitter + ' ms'"></span></div>
-                            <div>LOSS: <span :class="wanLoss > 0 ? 'text-amber-500 animate-pulse' : 'text-white'" x-text="wanLoss + '%'"></span></div>
+                        <div x-show="wanStatus === 'running'" class="flex md:gap-4 mt-0 md:mt-auto md:pt-6 text-[9px] md:text-[10px] lg:text-xs 2xl:text-sm font-mono font-bold uppercase tracking-widest text-zinc-500 w-auto md:w-full justify-between gap-3">
+                            <div><span class="hidden md:inline">JITTER:</span><span class="md:hidden">JIT:</span> <span class="text-white" x-text="wanJitter + 'ms'"></span></div>
+                            <div><span class="hidden md:inline">LOSS:</span><span class="md:hidden">PKT:</span> <span :class="wanLoss > 0 ? 'text-amber-500 animate-pulse' : 'text-white'" x-text="wanLoss + '%'"></span></div>
                         </div>
                     </div>
-                    <div class="absolute bottom-0 left-0 w-full h-1/2 opacity-30 z-0 pointer-events-none" x-show="wanStatus !== 'pending'">
+                    <!-- Hidden Chart on Mobile -->
+                    <div class="absolute bottom-0 left-0 w-full h-1/2 opacity-30 z-0 pointer-events-none hidden md:block" x-show="wanStatus !== 'pending'">
                         <canvas id="wanChart"></canvas>
                     </div>
                 </div>
 
                 <!-- DYNAMIC HUD 1: HYPERVISOR CORE -->
-                <div x-show="hasPriority('compute')" class="flex-1 w-full xl:w-auto p-5 md:p-6 lg:p-8 flex flex-col justify-between relative overflow-hidden">
+                <div x-show="hasPriority('compute')" class="flex-1 w-full xl:w-auto p-4 md:p-6 lg:p-8 flex flex-col justify-between relative overflow-hidden">
                     <div class="flex justify-between items-start w-full">
                         <div>
-                            <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Compute Core</h2>
-                            <div class="text-2xl md:text-3xl lg:text-4xl 2xl:text-5xl font-black uppercase tracking-wider drop-shadow" 
+                            <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-0 md:mb-1">Compute Core</h2>
+                            <div class="text-lg md:text-2xl lg:text-4xl 2xl:text-5xl font-black uppercase tracking-wider drop-shadow leading-none mt-1 md:mt-0" 
                                  :class="hostName === 'NO HOST' ? 'text-amber-500 animate-pulse' : 'text-white'" 
                                  x-text="hostName === 'NO HOST' ? 'AWAITING DATA' : hostName"></div>
                         </div>
                         <div class="text-right flex flex-col items-end">
-                            <span class="text-[9px] 2xl:text-xs font-mono font-black tracking-[0.1em] uppercase px-3 py-1 rounded border mb-2 shadow-inner"
+                            <span class="text-[8px] md:text-[9px] 2xl:text-xs font-mono font-black tracking-[0.1em] uppercase px-2 py-0.5 md:px-3 md:py-1 rounded border mb-1 md:mb-2 shadow-inner"
                                   :class="hostName === 'NO HOST' ? 'bg-amber-900/30 text-amber-500 border-amber-500/30' : (hostStatus === 'running' ? 'bg-[#39ff14]/10 text-neon-green border-neon-green/30' : 'bg-red-900/30 text-red-400 border-red-500/30')"
                                   x-text="hostName === 'NO HOST' ? 'PENDING' : (hostStatus === 'stopped' ? 'CRITICAL OFFLINE' : 'NOMINAL')"></span>
-                            <span class="text-[10px] lg:text-xs 2xl:text-sm font-mono text-zinc-400 font-bold uppercase tracking-widest" x-show="hostStatus === 'running'">UP: <span class="text-white" x-text="formatUptime(hostUptime)"></span></span>
+                            <span class="hidden md:block text-[10px] lg:text-xs 2xl:text-sm font-mono text-zinc-400 font-bold uppercase tracking-widest" x-show="hostStatus === 'running'">UP: <span class="text-white" x-text="formatUptime(hostUptime)"></span></span>
                         </div>
                     </div>
                     
-                    <div class="flex flex-col md:flex-row justify-between items-center w-full mt-6 xl:mt-auto" x-show="hostStatus === 'running'">
+                    <!-- Mobile Dense Text Summary -->
+                    <div class="md:hidden mt-2 font-mono text-[10px] font-bold" x-show="hostStatus === 'running'">
+                        <span class="text-zinc-500">CPU:</span> <span class="text-white" x-text="Math.round(hostCpu) + '%'"></span> <span class="mx-1 text-zinc-700">|</span>
+                        <span class="text-zinc-500">RAM:</span> <span class="text-white" x-text="hostMemUsed.toFixed(1) + 'G'"></span> <span class="mx-1 text-zinc-700">|</span>
+                        <span class="text-zinc-500">DSK:</span> <span class="text-white" x-text="Math.round((hostDiskUsed / Math.max(hostDiskTotal, 1)) * 100) + '%'"></span>
+                    </div>
+
+                    <!-- Desktop Dials -->
+                    <div class="hidden md:flex flex-col md:flex-row justify-between items-center w-full mt-6 xl:mt-auto" x-show="hostStatus === 'running'">
                         <div class="flex gap-6 2xl:gap-10 w-full md:w-auto mb-4 md:mb-0 justify-center">
                             <div class="flex flex-col items-center">
                                 <div class="dial w-16 h-16 lg:w-20 lg:h-20 2xl:w-24 2xl:h-24 bg-black mb-2.5 shadow-[0_5px_15px_rgba(0,0,0,0.5)] border border-zinc-900" :style="getDialGradient(hostCpu, getCpuColor(hostCpu, hostCpuThresh))">
@@ -266,27 +231,28 @@
                         </div>
                         
                         <div class="flex flex-col gap-2.5 text-right pb-1 w-full md:w-auto text-center md:text-right">
+                            <!-- FIX: Use formatSpeed() to allow Kbps scaling on idle endpoints -->
                             <div class="flex items-center justify-center md:justify-end gap-2 text-xs lg:text-sm 2xl:text-base font-mono font-bold uppercase tracking-widest">
                                 <svg class="w-4 h-4 2xl:w-5 2xl:h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
-                                <span class="text-zinc-500">RX: <span class="text-white" x-text="hostRx"></span> Mbps</span>
+                                <span class="text-zinc-500">RX: <span class="text-white" x-text="formatSpeed(hostRx)"></span></span>
                             </div>
                             <div class="flex items-center justify-center md:justify-end gap-2 text-xs lg:text-sm 2xl:text-base font-mono font-bold uppercase tracking-widest">
                                 <svg class="w-4 h-4 2xl:w-5 2xl:h-5 text-fuchsia-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
-                                <span class="text-zinc-500">TX: <span class="text-white" x-text="hostTx"></span> Mbps</span>
+                                <span class="text-zinc-500">TX: <span class="text-white" x-text="formatSpeed(hostTx)"></span></span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- DYNAMIC HUD 2: STORAGE ARRAYS -->
-                <div x-show="hasPriority('storage')" class="flex-1 w-full xl:w-auto p-5 md:p-6 lg:p-8 flex flex-col justify-between">
-                    <div>
-                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Storage Fleet</h2>
-                        <div class="text-3xl md:text-4xl 2xl:text-5xl font-black font-mono mt-1 2xl:mt-3" 
+                <div x-show="hasPriority('storage')" class="flex-1 w-full xl:w-auto p-4 md:p-6 lg:p-8 flex flex-col justify-between">
+                    <div class="flex justify-between items-center md:items-start md:block">
+                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-0 md:mb-1">Storage Fleet</h2>
+                        <div class="text-xl md:text-3xl lg:text-4xl 2xl:text-5xl font-black font-mono mt-0 md:mt-1 2xl:mt-3 leading-none" 
                              :class="storageAgg.total > 0 ? 'text-white' : 'text-amber-500 animate-pulse'" 
                              x-text="storageAgg.total > 0 ? (formatStorage(storageAgg.used) + ' / ' + formatStorage(storageAgg.total)) : 'AWAITING DATA'"></div>
                     </div>
-                    <div class="flex items-center justify-between mt-6 xl:mt-auto" x-show="storageAgg.total > 0">
+                    <div class="hidden md:flex items-center justify-between mt-6 xl:mt-auto" x-show="storageAgg.total > 0">
                         <div class="w-full bg-black/60 rounded-full h-4 overflow-hidden border border-zinc-800 shadow-inner mr-4">
                             <div class="h-full rounded-full transition-all duration-1000" :style="`width: ${storageAgg.percent}%; background: ${getRamColor(storageAgg.percent, 90)}`"></div>
                         </div>
@@ -295,15 +261,15 @@
                 </div>
 
                 <!-- DYNAMIC HUD 3: DNS SINKHOLE -->
-                <div x-show="hasPriority('dns')" class="flex-1 w-full xl:w-auto p-5 md:p-6 lg:p-8 flex justify-between items-center relative overflow-hidden" :class="!piholeLoaded ? 'bg-amber-950/20' : ''">
+                <div x-show="hasPriority('dns')" class="flex-1 w-full xl:w-auto p-4 md:p-6 lg:p-8 flex justify-between items-center relative overflow-hidden" :class="!piholeLoaded ? 'bg-amber-950/20' : ''">
                     <div class="flex flex-col justify-between h-full z-10 w-full pr-4">
-                        <div>
+                        <div class="flex justify-between items-center md:items-start md:block">
                             <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase">DNS Sinkhole</h2>
-                            <div class="text-2xl lg:text-3xl 2xl:text-4xl font-black font-mono mt-1 2xl:mt-3" 
+                            <div class="text-xl md:text-2xl lg:text-3xl 2xl:text-4xl font-black font-mono mt-0 md:mt-1 2xl:mt-3 leading-none" 
                                  :class="!piholeLoaded ? 'text-amber-500 animate-pulse' : (piholeActive ? 'text-neon-green' : 'text-red-500')" 
                                  x-text="!piholeLoaded ? 'AWAITING DATA' : (piholeActive ? 'ACTIVE' : 'OFFLINE')"></div>
                         </div>
-                        <div class="mt-auto font-mono space-y-3 pt-6" x-show="piholeLoaded">
+                        <div class="hidden md:block mt-auto font-mono space-y-3 pt-6" x-show="piholeLoaded">
                             <div class="flex justify-between text-xs lg:text-sm 2xl:text-base uppercase font-black tracking-widest text-zinc-500">
                                 <span>Gravity:</span> <span class="text-white" x-text="(pihole.domains_blocked || 0).toLocaleString()"></span>
                             </div>
@@ -315,7 +281,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="dial w-20 h-20 lg:w-24 lg:h-24 2xl:w-32 2xl:h-32 bg-black shadow-[0_5px_15px_rgba(0,0,0,0.5)] border border-zinc-900 z-10 shrink-0" :style="getDialGradient(pihole.ads_percentage || 0, '#39ff14')" x-show="piholeLoaded">
+                    <div class="hidden md:flex dial w-20 h-20 lg:w-24 lg:h-24 2xl:w-32 2xl:h-32 bg-black shadow-[0_5px_15px_rgba(0,0,0,0.5)] border border-zinc-900 z-10 shrink-0" :style="getDialGradient(pihole.ads_percentage || 0, '#39ff14')" x-show="piholeLoaded">
                         <div class="relative z-10 flex flex-col items-center justify-center">
                             <span class="text-base lg:text-xl 2xl:text-2xl font-black font-mono text-white leading-none drop-shadow-md" x-text="Math.round(pihole.ads_percentage || 0) + '%'"></span>
                         </div>
@@ -323,67 +289,79 @@
                 </div>
 
                 <!-- DYNAMIC HUD 4: DOCKER FLEET -->
-                <div x-show="hasPriority('docker')" class="flex-1 w-full xl:w-auto p-5 md:p-6 lg:p-8 flex flex-col justify-between relative overflow-hidden">
-                    <div>
-                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Docker Fleet</h2>
-                        <div class="text-3xl md:text-4xl font-black font-mono mt-1" 
+                <div x-show="hasPriority('docker')" class="flex-1 w-full xl:w-auto p-4 md:p-6 lg:p-8 flex flex-col justify-between relative overflow-hidden">
+                    <div class="flex justify-between items-center md:items-start md:block">
+                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-0 md:mb-1">Docker Fleet</h2>
+                        <div class="text-xl md:text-3xl lg:text-4xl font-black font-mono mt-0 md:mt-1 leading-none" 
                              :class="dockerAgg.total > 0 ? (dockerAgg.online === dockerAgg.total ? 'text-neon-green' : (dockerAgg.online > 0 ? 'text-amber-500' : 'text-red-500')) : 'text-amber-500 animate-pulse'" 
                              x-text="dockerAgg.total > 0 ? (dockerAgg.online + ' / ' + dockerAgg.total + ' LIVE') : 'AWAITING DATA'"></div>
                     </div>
-                    <div class="mt-auto font-mono text-xs lg:text-sm uppercase font-black text-zinc-500 pt-6" x-show="dockerAgg.total > 0">
+                    <div class="hidden md:block mt-auto font-mono text-xs lg:text-sm uppercase font-black text-zinc-500 pt-6" x-show="dockerAgg.total > 0">
                         Containers Mapped: <span class="text-white" x-text="dockerAgg.total"></span>
                     </div>
                 </div>
 
                 <!-- DYNAMIC HUD 5: GAME FLEET -->
-                <div x-show="hasPriority('games')" class="flex-1 w-full xl:w-auto p-5 md:p-6 lg:p-8 flex flex-col justify-between relative overflow-hidden">
-                    <div>
-                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Game Fleet</h2>
-                        <div class="text-3xl md:text-4xl font-black font-mono mt-1" 
+                <div x-show="hasPriority('games')" class="flex-1 w-full xl:w-auto p-4 md:p-6 lg:p-8 flex flex-col justify-between relative overflow-hidden">
+                    <div class="flex justify-between items-center md:items-start md:block">
+                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-0 md:mb-1">Game Fleet</h2>
+                        <div class="text-xl md:text-3xl lg:text-4xl font-black font-mono mt-0 md:mt-1 leading-none" 
                              :class="gameAgg.total > 0 ? (gameAgg.online === gameAgg.total ? 'text-neon-green' : (gameAgg.online > 0 ? 'text-amber-500' : 'text-red-500')) : 'text-amber-500 animate-pulse'" 
                              x-text="gameAgg.total > 0 ? (gameAgg.online + ' / ' + gameAgg.total + ' ONLINE') : 'AWAITING DATA'"></div>
                     </div>
-                    <div class="mt-auto font-mono text-xs lg:text-sm uppercase font-black text-zinc-500 pt-6" x-show="gameAgg.total > 0">
+                    <div class="hidden md:block mt-auto font-mono text-xs lg:text-sm uppercase font-black text-zinc-500 pt-6" x-show="gameAgg.total > 0">
                         Active Nodes: <span class="text-white" x-text="gameAgg.online"></span>
                     </div>
                 </div>
                 
                 <!-- DYNAMIC HUD 6: MEDIA FLEET -->
-                <div x-show="hasPriority('media')" class="flex-1 w-full xl:w-auto p-5 md:p-6 lg:p-8 flex flex-col justify-between relative overflow-hidden">
-                    <div>
-                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-1">Media Fleet</h2>
-                        <div class="text-3xl md:text-4xl font-black font-mono mt-1 text-neon-purple drop-shadow-[0_0_15px_rgba(176,38,255,0.4)]" 
+                <div x-show="hasPriority('media')" class="flex-1 w-full xl:w-auto p-4 md:p-6 lg:p-8 flex flex-col justify-between relative overflow-hidden">
+                    <div class="flex justify-between items-center md:items-start md:block">
+                        <h2 class="text-[10px] lg:text-xs 2xl:text-sm font-black text-zinc-500 tracking-[0.2em] uppercase mb-0 md:mb-1">Media Fleet</h2>
+                        <div class="text-xl md:text-3xl lg:text-4xl font-black font-mono mt-0 md:mt-1 text-neon-purple drop-shadow-[0_0_15px_rgba(176,38,255,0.4)] leading-none" 
                              x-text="mediaAgg.online > 0 ? 'ONLINE & ACTIVE' : (mediaAgg.total > 0 ? 'IDLE / READY' : 'AWAITING DATA')"></div>
                     </div>
-                    <div class="mt-auto font-mono text-xs lg:text-sm uppercase font-black text-zinc-500 pt-6" x-show="mediaAgg.total > 0">
+                    <div class="hidden md:block mt-auto font-mono text-xs lg:text-sm uppercase font-black text-zinc-500 pt-6" x-show="mediaAgg.total > 0">
                         Media Servers Tracked: <span class="text-white" x-text="mediaAgg.total"></span>
                     </div>
                 </div>
+            </div>
 
+            <!-- ========================================== -->
+            <!-- MOBILE STICKY FILTER BAR (Hidden Desktop)  -->
+            <!-- top-[-1rem] negates the pt-4 on the parent -->
+            <!-- ========================================== -->
+            <div x-show="!isDisplayMode" class="md:hidden sticky top-[-1rem] z-40 bg-[#000000]/95 backdrop-blur-xl border-b border-zinc-800/80 -mx-4 px-4 py-3 mb-6 flex gap-2 overflow-x-auto custom-scroll shadow-lg">
+                <button @click="activeView = 'overview'; scrollToGrid()" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border" :class="activeView === 'overview' ? 'bg-[#39ff14]/15 text-[#39ff14] border-[#39ff14]' : 'bg-zinc-900/50 text-zinc-500 border-zinc-800 hover:text-zinc-300'">Fleet Overview</button>
+                <button @click="activeView = 'compute'; scrollToGrid()" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border" :class="activeView === 'compute' ? 'bg-[#39ff14]/15 text-[#39ff14] border-[#39ff14]' : 'bg-zinc-900/50 text-zinc-500 border-zinc-800 hover:text-zinc-300'">Compute & VMs</button>
+                <button @click="activeView = 'storage'; scrollToGrid()" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border" :class="activeView === 'storage' ? 'bg-[#39ff14]/15 text-[#39ff14] border-[#39ff14]' : 'bg-zinc-900/50 text-zinc-500 border-zinc-800 hover:text-zinc-300'">Storage Arrays</button>
+                <button @click="activeView = 'apps'; scrollToGrid()" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border" :class="activeView === 'apps' ? 'bg-[#39ff14]/15 text-[#39ff14] border-[#39ff14]' : 'bg-zinc-900/50 text-zinc-500 border-zinc-800 hover:text-zinc-300'">Apps & Network</button>
+                <button @click="activeView = 'games'; scrollToGrid()" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border" :class="activeView === 'games' ? 'bg-[#39ff14]/15 text-[#39ff14] border-[#39ff14]' : 'bg-zinc-900/50 text-zinc-500 border-zinc-800 hover:text-zinc-300'">Game Fleet</button>
+                <button @click="activeView = 'dormant'; scrollToGrid()" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border" :class="activeView === 'dormant' ? 'bg-white/10 text-white border-white' : 'bg-zinc-900/50 text-zinc-500 border-zinc-800 hover:text-zinc-300'">Dormant</button>
             </div>
 
             <!-- DYNAMIC TABBED CONTENT GRID ANCHOR -->
-            <div id="grid-top" class="scroll-mt-6"></div>
+            <div id="grid-top" class="scroll-mt-16 md:scroll-mt-6"></div>
 
             <!-- DYNAMIC ACTIVE ALERTS ROW (Permanent Anchorage) -->
-            <div x-show="activeAlerts.length > 0" x-transition class="flex flex-col mb-8 md:mb-10 shrink-0 bg-red-950/30 p-5 rounded-xl border-t border-b border-red-900/50 shadow-[0_10px_30px_rgba(239,68,68,0.1)]">
-                <h3 class="text-xs md:text-sm font-black text-red-500 uppercase tracking-[0.25em] mb-5 flex items-center gap-2 alert-header">
+            <div x-show="activeAlerts.length > 0" x-transition class="flex flex-col mb-6 md:mb-10 shrink-0 bg-red-950/30 p-4 md:p-5 rounded-xl border-t border-b border-red-900/50 shadow-[0_10px_30px_rgba(239,68,68,0.1)]">
+                <h3 class="text-xs md:text-sm font-black text-red-500 uppercase tracking-[0.25em] mb-4 md:mb-5 flex items-center gap-2 alert-header">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                     CRITICAL INFRASTRUCTURE ALERTS
                 </h3>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-6">
                     <template x-for="t in activeAlerts" :key="'alert-' + t.entity_name">
-                        <div class="glass-panel rounded-xl p-6 flex flex-col justify-between transition-all min-h-[180px] relative overflow-hidden"
+                        <div class="glass-panel rounded-xl p-4 md:p-6 flex flex-col justify-between transition-all min-h-[auto] md:min-h-[180px] relative overflow-hidden"
                              :class="{ 
                                  'status-pulse-red bg-red-950/60 border-red-500/60': t.status === 'stopped' && !isVerifying(t), 
                                  'status-pulse-amber bg-amber-950/60 border-amber-500/60': t.status === 'stopped' && isVerifying(t),
                                  'bg-black/95 border-zinc-700 shadow-xl': t.status === 'running' 
                              }">
                             
-                            <div class="flex justify-between items-start mb-2 z-10">
+                            <div class="flex justify-between items-center md:items-start mb-0 md:mb-2 z-10">
                                 <div class="truncate w-full">
-                                    <h4 class="font-black text-white text-lg md:text-xl uppercase tracking-wider truncate drop-shadow" x-text="t.entity_name"></h4>
-                                    <div class="flex flex-wrap items-center gap-2 mt-1.5">
+                                    <h4 class="font-black text-white text-base md:text-xl uppercase tracking-wider truncate drop-shadow" x-text="t.entity_name"></h4>
+                                    <div class="hidden md:flex flex-wrap items-center gap-2 mt-1.5">
                                         <div class="text-[10px] 2xl:text-xs font-mono font-black tracking-widest uppercase px-2 py-0.5 rounded inline-block border"
                                              :class="{
                                                  'bg-red-900/30 text-red-400 border-red-500/30': t.status === 'stopped' && !isVerifying(t),
@@ -397,21 +375,45 @@
                                         <div x-show="!t.parent_uid" class="text-[9px] 2xl:text-[10px] font-mono font-bold text-zinc-400 uppercase tracking-widest px-2 py-0.5 rounded bg-black/50 border border-zinc-700/50" x-text="t.location || 'LOCAL'"></div>
                                     </div>
                                 </div>
+                                
+                                <!-- Mobile Badge Alternative -->
+                                <div class="md:hidden shrink-0 ml-3">
+                                    <div class="text-[9px] font-mono font-black tracking-widest uppercase px-2 py-1 rounded border"
+                                         :class="{
+                                             'bg-red-900/30 text-red-400 border-red-500/30': t.status === 'stopped' && !isVerifying(t),
+                                             'bg-amber-900/30 text-amber-500 border-amber-500/30': t.status === 'stopped' && isVerifying(t),
+                                             'bg-amber-900/30 text-amber-500 border-amber-500/30': t.status === 'running'
+                                         }"
+                                         x-text="t.status === 'stopped' ? (isVerifying(t) ? 'VERIFYING' : 'OFFLINE') : 'WARNING'"></div>
+                                </div>
                             </div>
 
                             <!-- Offline RCA Context -->
-                            <div x-show="t.status === 'stopped'" class="flex-1 flex flex-col justify-center items-center rounded-lg border mt-4 p-3 z-10"
-                                 :class="isVerifying(t) ? 'bg-amber-950/50 border-amber-500/30' : 'bg-red-950/50 border-red-500/30'">
-                                <div class="text-xs font-black uppercase tracking-widest mb-1.5"
+                            <div x-show="t.status === 'stopped'" class="flex-1 flex flex-col justify-center md:items-center rounded-lg md:border mt-2 md:mt-4 md:p-3 z-10"
+                                 :class="isVerifying(t) ? 'md:bg-amber-950/50 md:border-amber-500/30' : 'md:bg-red-950/50 md:border-red-500/30'">
+                                <div class="text-[10px] md:text-xs font-black uppercase tracking-widest mb-0.5 md:mb-1.5"
                                      :class="isVerifying(t) ? 'text-amber-500' : 'text-red-500'"
                                      x-text="isVerifying(t) ? 'AWAITING CONFIRMATION PINGS' : (t.parent_uid ? 'Isolated Service Fault' : 'Hardware / Node Failure')"></div>
-                                <div class="font-mono text-sm font-bold"
+                                <div class="font-mono text-xs md:text-sm font-bold"
                                      :class="isVerifying(t) ? 'text-amber-300' : 'text-red-300'"
-                                     x-text="isVerifying(t) ? 'Validating state...' : formatTime(t.down_since)"></div>
+                                     x-text="isVerifying(t) ? 'Validating state...' : 'Down for: ' + formatTime(t.down_since)"></div>
                             </div>
 
-                            <!-- Capacity Metrics -->
-                            <div x-show="t.status === 'running'" class="flex justify-around items-end flex-1 pb-2 pt-4 z-10">
+                            <!-- Mobile Dense Metrics (Running Alerts) -->
+                            <div x-show="t.status === 'running'" class="md:hidden mt-3 text-[10px] font-mono font-bold flex flex-wrap gap-x-3 gap-y-1 z-10">
+                                <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
+                                    <span class="text-zinc-400">CPU: <span class="text-red-400" x-text="Math.round(t.cpu_usage || 0) + '%'"></span></span>
+                                </template>
+                                <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
+                                    <span class="text-zinc-400">RAM: <span class="text-white" x-text="(t.mem_used || 0).toFixed(1) + 'G'"></span></span>
+                                </template>
+                                <template x-if="t.entity_type === 'storage'">
+                                    <span class="text-zinc-400">DSK: <span class="text-red-400" x-text="((t.disk_used / Math.max(t.disk_total, 1)) * 100).toFixed(1) + '%'"></span></span>
+                                </template>
+                            </div>
+
+                            <!-- Desktop Capacity Metrics -->
+                            <div x-show="t.status === 'running'" class="hidden md:flex justify-around items-end flex-1 pb-2 pt-4 z-10">
                                 <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
                                     <div class="flex flex-col items-center">
                                         <div class="dial w-16 h-16 md:w-20 md:h-20 bg-black mb-2 shadow-lg border border-zinc-900" :style="getDialGradient(t.cpu_usage || 0, getCpuColor(t.cpu_usage, t.cpu_threshold))">
@@ -464,10 +466,10 @@
                         No dormant or paused infrastructure.
                     </div>
                     
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 md:gap-4">
                         <template x-for="t in pausedTargets" :key="'paused-' + t.uid">
-                            <div class="status-paused rounded-xl p-5 flex flex-col justify-between border">
-                                <h4 class="font-black text-zinc-400 text-sm uppercase tracking-wider truncate mb-3" x-text="t.entity_name"></h4>
+                            <div class="status-paused rounded-xl p-4 md:p-5 flex flex-col justify-between border">
+                                <h4 class="font-black text-zinc-400 text-sm uppercase tracking-wider truncate mb-2 md:mb-3" x-text="t.entity_name"></h4>
                                 <div class="flex justify-between items-center">
                                     <span class="text-[10px] font-mono font-black text-zinc-500 uppercase tracking-widest" x-text="t.entity_type"></span>
                                     <span class="text-[9px] font-mono font-bold text-zinc-600 uppercase tracking-widest px-2 py-0.5 rounded bg-black border border-zinc-800">PAUSED</span>
@@ -483,14 +485,14 @@
                         No active infrastructure in this category.
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-6">
                         <template x-for="t in filteredTargets" :key="t.uid">
-                            <div class="card-nominal rounded-xl p-5 md:p-6 flex flex-col justify-between transition-all min-h-[170px] relative overflow-hidden shadow-lg">
+                            <div class="card-nominal rounded-xl p-4 md:p-6 flex flex-col justify-between transition-all min-h-[auto] md:min-h-[170px] relative overflow-hidden shadow-lg">
                                 
-                                <div class="flex justify-between items-start mb-2 z-10">
-                                    <div class="truncate w-full">
-                                        <h4 class="font-black text-white/90 text-lg md:text-xl uppercase tracking-wider truncate drop-shadow" x-text="t.entity_name"></h4>
-                                        <div class="flex flex-wrap items-center gap-2 mt-1.5">
+                                <div class="flex justify-between items-center md:items-start mb-0 md:mb-2 z-10">
+                                    <div class="truncate w-full flex justify-between items-center md:block">
+                                        <h4 class="font-black text-white/90 text-base md:text-xl uppercase tracking-wider truncate drop-shadow" x-text="t.entity_name"></h4>
+                                        <div class="hidden md:flex flex-wrap items-center gap-2 mt-1.5">
                                             <div class="text-[10px] 2xl:text-xs font-mono font-black tracking-widest uppercase px-2 py-0.5 rounded inline-block border bg-[#39ff14]/5 text-neon-green/80 border-neon-green/20">ONLINE</div>
                                             <!-- RCA Badge -->
                                             <div x-show="t.parent_uid" class="text-[9px] 2xl:text-[10px] font-mono font-bold text-neon-purple uppercase tracking-widest px-2 py-0.5 rounded bg-neon-purple/10 border border-neon-purple/30 shadow-inner">
@@ -499,9 +501,30 @@
                                             <div x-show="!t.parent_uid" class="text-[9px] 2xl:text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest px-2 py-0.5 rounded bg-black/40 border border-zinc-800/50" x-text="t.location || 'LOCAL'"></div>
                                         </div>
                                     </div>
+                                    <!-- Mobile Status Dot -->
+                                    <div class="md:hidden shrink-0 ml-3">
+                                        <div class="w-3 h-3 rounded-full bg-[#39ff14] shadow-[0_0_8px_rgba(57,255,20,0.6)]"></div>
+                                    </div>
                                 </div>
 
-                                <div class="flex justify-around items-end flex-1 pb-1 pt-4 z-10">
+                                <!-- Mobile Dense Text View -->
+                                <div class="md:hidden flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-mono font-bold mt-2 z-10 opacity-90">
+                                    <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
+                                        <span class="text-zinc-500">CPU: <span class="text-white" x-text="Math.round(t.cpu_usage || 0) + '%'"></span></span>
+                                    </template>
+                                    <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
+                                        <span class="text-zinc-500">RAM: <span class="text-white" x-text="(t.mem_used || 0).toFixed(1) + 'G'"></span></span>
+                                    </template>
+                                    <template x-if="t.entity_type === 'storage'">
+                                        <span class="text-zinc-500">USE: <span class="text-white" x-text="((t.disk_used / Math.max(t.disk_total, 1)) * 100).toFixed(1) + '%'"></span></span>
+                                    </template>
+                                    <template x-if="t.entity_type === 'network' || t.entity_type === 'http'">
+                                        <span class="text-zinc-500">PING: <span class="text-neon-green" x-text="(t.ping_ms || 0).toFixed(0) + 'ms'"></span></span>
+                                    </template>
+                                </div>
+
+                                <!-- Desktop Dials & Charts -->
+                                <div class="hidden md:flex justify-around items-end flex-1 pb-1 pt-4 z-10">
                                     <template x-if="['host', 'vm', 'lxc', 'game'].includes(t.entity_type)">
                                         <div class="flex flex-col items-center opacity-90">
                                             <div class="dial w-14 h-14 md:w-16 md:h-16 2xl:w-20 2xl:h-20 bg-black/80 mb-2 border border-zinc-900 shadow-inner" :style="getDialGradient(t.cpu_usage || 0, getCpuColor(t.cpu_usage, t.cpu_threshold))">
@@ -570,375 +593,19 @@
         </div>
     </div>
 
-    <script>
-        function nocApp() {
-            return {
-                isLoading: true,
-                isDisplayMode: false,
-                targets: [],
-                sparklines: {},
-                pihole: {},
-                piholeLoaded: false,
-                piholeActive: false,
-                sysTime: '--:--:--',
-                isMuted: false,
-                hudPriorities: [],
-                
-                hostName: 'NO HOST',
-                hostStatus: 'pending',
-                hostCpu: 0,
-                hostMemUsed: 0,
-                hostMemTotal: 1,
-                hostDiskUsed: 0,
-                hostDiskTotal: 1,
-                hostCpuThresh: 90.0,
-                hostMemThresh: 90.0,
-                hostRx: '0.0',
-                hostTx: '0.0',
-                hostUptime: 0,
-
-                wanName: 'WAN ROUTING',
-                wanPing: 0,
-                wanLoss: 0.0,
-                wanJitter: 0.0,
-                wanStatus: 'pending',
-                
-                storageAgg: { used: 0, total: 0, percent: 0 },
-                gameAgg: { online: 0, total: 0 },
-                dockerAgg: { online: 0, total: 0 },
-                mediaAgg: { online: 0, total: 0 },
-
-                chartObj: null,
-
-                activeView: 'overview',
-                mobileMenuOpen: false,
-
-                get viewTitle() {
-                    const map = {
-                        'overview': 'Fleet Overview',
-                        'compute': 'Compute & VMs',
-                        'storage': 'Storage Arrays',
-                        'apps': 'Apps & Network',
-                        'games': 'Game Fleet',
-                        'dormant': 'Dormant Infrastructure'
-                    };
-                    return map[this.activeView];
-                },
-
-                initApp() {
-                    const updateTime = () => { this.sysTime = new Date().toLocaleTimeString('en-US', { hour12: false }); };
-                    updateTime(); 
-                    setInterval(updateTime, 1000);
-
-                    const ctx = document.getElementById('wanChart').getContext('2d');
-                    this.chartObj = new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: Array(60).fill(''),
-                            datasets: [{
-                                data: Array(60).fill(0),
-                                borderColor: '#39ff14', 
-                                backgroundColor: 'rgba(57, 255, 20, 0.15)',
-                                borderWidth: 2, fill: true, tension: 0.3, pointRadius: 0
-                            }]
-                        },
-                        options: {
-                            responsive: true, maintainAspectRatio: false,
-                            plugins: { legend: { display: false }, tooltip: { enabled: false } },
-                            scales: { x: { display: false }, y: { display: false, min: 0, suggestedMax: 50 } },
-                            animation: { duration: 0 }
-                        }
-                    });
-
-                    const minLoadTime = new Promise(resolve => setTimeout(resolve, 1500));
-                    const dataLoad = this.fetchData();
-                    
-                    Promise.all([minLoadTime, dataLoad]).then(() => {
-                        this.isLoading = false;
-                        setInterval(() => this.fetchData(), 10000);
-                    });
-                },
-                
-                toggleDisplayMode() {
-                    if (!document.fullscreenElement) {
-                        document.documentElement.requestFullscreen().catch(e => {
-                            console.warn("Fullscreen request failed", e);
-                        });
-                    } else {
-                        if (document.exitFullscreen) {
-                            document.exitFullscreen();
-                        }
-                    }
-                },
-                
-                scrollToGrid() {
-                    this.$nextTick(() => {
-                        const el = document.getElementById('grid-top');
-                        if (el) {
-                            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }
-                    });
-                },
-
-                hasPriority(key) {
-                    return this.hudPriorities.includes(key);
-                },
-
-                async fetchData() {
-                    try {
-                        const jwtToken = sessionStorage.getItem('noc_jwt') || '';
-                        const headers = jwtToken ? { 'Authorization': `Bearer ${jwtToken}` } : {};
-                        
-                        const res = await fetch('/api/live', { headers });
-                        
-                        if (res.status === 401) {
-                            sessionStorage.removeItem('noc_jwt');
-                            return this.fetchData();
-                        }
-                        
-                        const json = await res.json();
-                        
-                        if (json.status === 'success') {
-                            if (json.is_setup_complete === false) {
-                                window.location.href = '/setup';
-                                return;
-                            }
-                            this.targets = json.data;
-                            this.sparklines = json.sparklines || {};
-                            this.pihole = json.pihole || {};
-                            
-                            const settings = json.settings || {};
-                            this.isMuted = (settings.global_mute === '1');
-                            this.hudPriorities = (settings.hud_priorities || '').split(',');
-                            
-                            this.piholeLoaded = Object.keys(this.pihole).length > 0;
-                            const ps = (this.pihole.status || '').toLowerCase();
-                            this.piholeActive = ['enabled', 'active', 'blocking'].includes(ps) || (this.pihole.queries_today > 0);
-
-                            // Parse Host Data (Proxmox or ESXi)
-                            const hosts = this.targets.filter(t => t.entity_type === 'host');
-                            const host = hosts.length > 0 ? (hosts.find(t => t.status === 'running') || hosts[0]) : null;
-                            
-                            if (host) {
-                                this.hostName = host.entity_name;
-                                this.hostStatus = host.status || 'pending';
-                                this.hostCpu = host.cpu_usage || 0;
-                                this.hostMemUsed = host.mem_used || 0;
-                                this.hostMemTotal = host.mem_total || 1;
-                                this.hostDiskUsed = host.disk_used || 0;
-                                this.hostDiskTotal = host.disk_total || 1;
-                                this.hostCpuThresh = host.cpu_threshold || 90.0;
-                                this.hostMemThresh = host.mem_threshold || 90.0;
-                                this.hostRx = (host.net_in || 0).toFixed(1);
-                                this.hostTx = (host.net_out || 0).toFixed(1);
-                                this.hostUptime = parseInt(settings.host_uptime || 0);
-                            } else {
-                                this.hostName = 'NO HOST';
-                                this.hostStatus = 'pending';
-                            }
-
-                            // Parse Primary WAN
-                            const wans = this.targets.filter(t => t.entity_type === 'network' && t.location === 'WAN');
-                            const wan = wans.length > 0 ? (wans.find(t => t.status === 'running') || wans[0]) : null;
-                            
-                            if (wan) {
-                                this.wanName = wan.entity_name;
-                                this.wanPing = (wan.ping_ms || 0).toFixed(0);
-                                this.wanStatus = wan.status || 'pending';
-                                this.wanLoss = (wan.packet_loss || 0.0).toFixed(1);
-                                this.wanJitter = (wan.jitter_ms || 0.0).toFixed(1);
-                            } else {
-                                this.wanName = 'WAN ROUTING';
-                                this.wanPing = 0;
-                                this.wanStatus = 'pending';
-                                this.wanLoss = 0.0;
-                                this.wanJitter = 0.0;
-                            }
-
-                            // Dynamic Aggregations for HUD Panels
-                            let sUsed = 0, sTot = 0, gOn = 0, gTot = 0, dOn = 0, dTot = 0, mOn = 0, mTot = 0;
-                            
-                            this.targets.forEach(t => {
-                                if (t.is_enabled === 1) {
-                                    if (t.entity_type === 'storage') {
-                                        sUsed += (t.disk_used || 0);
-                                        sTot += (t.disk_total || 0);
-                                    }
-                                    if (t.entity_type === 'game') {
-                                        gTot++;
-                                        if (t.status === 'running') gOn++;
-                                    }
-                                    if (t.uid.startsWith('dkr_')) {
-                                        dTot++;
-                                        if (t.status === 'running') dOn++;
-                                    }
-                                    if (t.uid.startsWith('app_jellyfin') || t.uid.startsWith('app_plex')) {
-                                        mTot++;
-                                        if (t.status === 'running') mOn++;
-                                    }
-                                }
-                            });
-                            
-                            this.storageAgg = { used: sUsed, total: sTot, percent: sTot > 0 ? (sUsed / sTot) * 100 : 0 };
-                            this.gameAgg = { online: gOn, total: gTot };
-                            this.dockerAgg = { online: dOn, total: dTot };
-                            this.mediaAgg = { online: mOn, total: mTot };
-                            
-                            // WAN Chart Updates
-                            if (json.wan_history && json.wan_history.length > 0) {
-                                const padded = [...Array(Math.max(0, 60 - json.wan_history.length)).fill(0), ...json.wan_history];
-                                this.chartObj.data.datasets[0].data = padded;
-                                this.chartObj.data.datasets[0].borderColor = this.wanStatus === 'running' ? '#39ff14' : '#ef4444';
-                                this.chartObj.data.datasets[0].backgroundColor = this.wanStatus === 'running' ? 'rgba(57, 255, 20, 0.15)' : 'rgba(239, 68, 68, 0.15)';
-                                this.chartObj.update();
-                            }
-                        }
-                    } catch (e) {}
-                },
-
-                isVerifying(t) {
-                    if (!t.down_since) return false;
-                    const downFor = (Date.now() / 1000) - t.down_since;
-                    return downFor < 30; // 30 second anti-panic grace period (~3 polls)
-                },
-
-                isActiveAlert(t) {
-                    if (t.is_enabled === 0) return false;
-                    if (t.entity_type === 'host') return false;
-                    if (t.entity_type === 'network' && t.location === 'WAN') return false;
-                    
-                    // RCA Logic for UI
-                    if (t.parent_uid) {
-                        const parent = this.targets.find(p => p.uid === t.parent_uid);
-                        if (parent && parent.status === 'stopped') return false;
-                    }
-
-                    if (t.status === 'stopped') return true;
-                    
-                    const cpuThresh = t.cpu_threshold || 90.0;
-                    const memThresh = t.mem_threshold || 90.0;
-                    
-                    if (['vm', 'lxc', 'game'].includes(t.entity_type)) {
-                        if ((t.cpu_usage || 0) >= cpuThresh) return true;
-                        const ramPct = ((t.mem_used || 0) / Math.max(t.mem_total || 1, 1)) * 100;
-                        if (ramPct >= memThresh) return true;
-                    }
-                    
-                    if (t.entity_type === 'storage') {
-                        const diskPct = ((t.disk_used || 0) / Math.max(t.disk_total || 1, 1)) * 100;
-                        if (diskPct >= memThresh) return true;
-                    }
-                    
-                    return false;
-                },
-
-                get fleetStatus() {
-                    const displayedTargets = this.targets.filter(t => {
-                        if (t.is_enabled === 0) return false;
-                        if (t.entity_type === 'host') { return t.entity_name === this.hostName; }
-                        if (t.entity_type === 'network' && t.location === 'WAN') { return t.entity_name === this.wanName; }
-                        return true;
-                    });
-
-                    const totalActive = displayedTargets.length;
-                    const online = displayedTargets.filter(t => t.status === 'running').length;
-                    const offline = displayedTargets.filter(t => t.status === 'stopped' && !this.isVerifying(t)).length;
-                    const paused = this.targets.filter(t => t.is_enabled === 0).length;
-                    const alerts = this.activeAlerts.length;
-                    
-                    return { totalActive, online, offline, paused, alerts };
-                },
-
-                get activeAlerts() {
-                    return this.targets.filter(t => this.isActiveAlert(t));
-                },
-
-                get activeTargets() {
-                    return this.targets.filter(t => 
-                        t.is_enabled === 1 && 
-                        t.entity_type !== 'host' && 
-                        !(t.entity_type === 'network' && t.location === 'WAN') &&
-                        !this.isActiveAlert(t)
-                    );
-                },
-
-                get pausedTargets() {
-                    return this.targets.filter(t => t.is_enabled === 0);
-                },
-
-                get filteredTargets() {
-                    const active = this.activeTargets;
-                    if (this.activeView === 'overview') return active;
-                    
-                    return active.filter(t => {
-                        if (this.activeView === 'compute') return ['vm', 'lxc'].includes(t.entity_type);
-                        if (this.activeView === 'storage') return t.entity_type === 'storage';
-                        if (this.activeView === 'apps') return ['app', 'http', 'network'].includes(t.entity_type);
-                        if (this.activeView === 'games') return t.entity_type === 'game';
-                        return false;
-                    });
-                },
-
-                getSparklinePoints(t) {
-                    const key = t.uid;
-                    const dataObj = this.sparklines[key];
-                    if (!dataObj) return '';
-                    const data = (t.entity_type === 'network' || t.entity_type === 'http') ? dataObj.ping : dataObj.cpu;
-                    if (!data || data.length === 0) return '';
-                    
-                    const max = Math.max(...data, 10);
-                    return data.map((val, i) => {
-                        const x = (i / Math.max(data.length - 1, 1)) * 100;
-                        const y = 30 - ((val / max) * 28);
-                        return `${x.toFixed(1)},${y.toFixed(1)}`;
-                    }).join(' ');
-                },
-
-                formatStorage(gb) {
-                    if (!gb) return '0G';
-                    if (gb >= 1000) return (gb / 1024).toFixed(2) + 'T';
-                    return gb.toFixed(1) + 'G';
-                },
-                
-                formatUptime(seconds) {
-                    if (!seconds || seconds == 0) return '0h 0m';
-                    const d = Math.floor(seconds / 86400);
-                    const h = Math.floor((seconds % 86400) / 3600);
-                    const m = Math.floor((seconds % 3600) / 60);
-                    if (d > 0) return `${d}d ${h}h`;
-                    return `${h}h ${m}m`;
-                },
-
-                getCpuColor(val, threshold = 90.0) {
-                    if (val >= threshold) return '#ef4444'; 
-                    if (val >= (threshold * 0.8)) return '#f59e0b'; 
-                    return '#39ff14'; 
-                },
-                
-                getRamColor(val, threshold = 90.0) {
-                    if (val >= threshold) return '#ef4444'; 
-                    if (val >= (threshold * 0.8)) return '#f59e0b'; 
-                    return '#39ff14'; 
-                },
-
-                getDialGradient(percent, color) {
-                    const p = Math.max(0, Math.min(percent || 0, 100));
-                    return `background: conic-gradient(${color} ${p}%, rgba(0, 0, 0, 1) ${p}%);`;
-                },
-
-                formatTime(timestamp) {
-                    if (!timestamp) return 'Unknown';
-                    const diff = Math.floor(Date.now() / 1000) - timestamp;
-                    const h = Math.floor(diff / 3600);
-                    const m = Math.floor((diff % 3600) / 60);
-                    if (h > 24) return Math.floor(h/24) + 'd ' + (h%24) + 'h';
-                    return (h > 0 ? h + 'h ' : '') + m + 'm';
-                }
-            }
-        }
-    </script>
+    <script src="/static/app.js"></script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
 
 
 
