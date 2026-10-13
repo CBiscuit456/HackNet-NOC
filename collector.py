@@ -1011,8 +1011,12 @@ def collect_and_store():
                                   silent_resolve=False, settings=settings, alert_updates=alert_updates, notification_queue=notification_queue, event_logs=event_logs)
             else:
                 if db_down != 0.0: downtime_updates.append((0.0, uid))
+                
+                # Fix: Dynamically generate the recovery body so the message is not blank
+                recover_body = f"✅ <b>SYSTEM RECOVERED</b> ✅\n\n<b>Entity:</b> {name}\n<b>Status:</b> Back Online and responding."
+                
                 process_alert(uid=uid, entity_name=name, metric='offline', condition_met=False, trigger_count=3, 
-                              alert_body="", recover_body="", log_trigger="", log_recover="Service is back online.",
+                              alert_body="", recover_body=recover_body, log_trigger="", log_recover="Service is back online.",
                               down_since=db_down, is_game=is_game, global_mute=global_mute, cooldown_interval=cldn, 
                               silent_resolve=False, settings=settings, alert_updates=alert_updates, notification_queue=notification_queue, event_logs=event_logs)
                 
@@ -1136,6 +1140,8 @@ if __name__ == "__main__":
                 except Exception: pass
 
     except KeyboardInterrupt: pass
+
+    
 
     
 
