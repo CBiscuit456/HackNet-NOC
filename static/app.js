@@ -20,8 +20,8 @@ function nocApp() {
         hostDiskTotal: 1,
         hostCpuThresh: 90.0,
         hostMemThresh: 90.0,
-        hostRx: '0.0',
-        hostTx: '0.0',
+        hostRx: 0,
+        hostTx: 0,
         hostUptime: 0,
 
         wanName: 'WAN ROUTING',
@@ -160,8 +160,8 @@ function nocApp() {
                         this.hostDiskTotal = host.disk_total || 1;
                         this.hostCpuThresh = host.cpu_threshold || 90.0;
                         this.hostMemThresh = host.mem_threshold || 90.0;
-                        this.hostRx = (host.net_in || 0).toFixed(1);
-                        this.hostTx = (host.net_out || 0).toFixed(1);
+                        this.hostRx = host.net_in || 0; // Removed premature .toFixed(1) to preserve precision
+                        this.hostTx = host.net_out || 0; // Removed premature .toFixed(1) to preserve precision
                         this.hostUptime = parseInt(settings.host_uptime || 0);
                     } else {
                         this.hostName = 'NO HOST';
@@ -374,6 +374,8 @@ function nocApp() {
         }
     }
 }
+
+
 
 
 
