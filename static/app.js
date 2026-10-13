@@ -100,9 +100,13 @@ function nocApp() {
         
         scrollToGrid() {
             this.$nextTick(() => {
-                const el = document.getElementById('grid-top');
-                if (el) {
-                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // ONLY scroll if we are on a desktop display (768px or wider)
+                // This prevents the jarring screen-jump UX on mobile devices.
+                if (window.innerWidth >= 768) {
+                    const el = document.getElementById('grid-top');
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
                 }
             });
         },
@@ -363,4 +367,6 @@ function nocApp() {
         }
     }
 }
+
+
 
