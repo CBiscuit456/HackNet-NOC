@@ -331,6 +331,13 @@ function nocApp() {
             return gb.toFixed(1) + 'G';
         },
         
+        formatSpeed(mbps) {
+            const val = parseFloat(mbps) || 0;
+            if (val >= 1.0) return val.toFixed(1) + ' MBPS';
+            if (val > 0) return (val * 1024).toFixed(0) + ' KBPS';
+            return '0 KBPS';
+        },
+
         formatUptime(seconds) {
             if (!seconds || seconds == 0) return '0h 0m';
             const d = Math.floor(seconds / 86400);
@@ -367,6 +374,8 @@ function nocApp() {
         }
     }
 }
+
+
 
 
 
