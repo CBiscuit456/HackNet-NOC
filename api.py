@@ -282,7 +282,7 @@ def _perform_discovery(plugins: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], L
     px_data = plugins.get('proxmox')
     if px_data and px_data.get('ip') and px_data.get('token_id') and px_data.get('token_secret'):
         try:
-            p = ProxmoxAPI(px_data['ip'], user=px_data['token_id'].split('!')[0], token_name=px_data['token_id'].split('!')[1], token_value=px_data['token_secret'], verify_ssl=False, timeout=5)
+            p = ProxmoxAPI(px_data['ip'], user=px_data['token_id'].split('!')[0], token_name=px_data['token_id'].split('!')[1], token_value=px_data['token_secret'], verify_ssl=False, timeout=2)
             nodes = p.nodes.get()
             if nodes:
                 my_node = nodes[0]['node']
@@ -304,7 +304,7 @@ def _perform_discovery(plugins: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], L
             base_url = ensure_url(esxi_data['ip'], 443).replace("http://", "https://")
             auth_str = f"{esxi_data['user']}:{esxi_data['password']}"
             b64_auth = base64.b64encode(auth_str.encode()).decode()
-            res_auth = requests.post(f"{base_url}/com/vmware/cis/session", headers={"Authorization": f"Basic {b64_auth}"}, timeout=5, verify=False)
+            res_auth = requests.post(f"{base_url}/com/vmware/cis/session", headers={"Authorization": f"Basic {b64_auth}"}, timeout=2, verify=False)
             if res_auth.status_code == 200:
                 session_token = res_auth.json().get('value')
                 headers = {"vmware-api-session-id": session_token}
@@ -312,7 +312,7 @@ def _perform_discovery(plugins: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], L
                 h_name = "ESXi Host"
                 discovered.append({"uid": h_uid, "name": h_name, "type": "host", "layer": 1})
                 
-                res_vms = requests.get(f"{base_url}/vcenter/vm", headers=headers, timeout=5, verify=False)
+                res_vms = requests.get(f"{base_url}/vcenter/vm", headers=headers, timeout=2, verify=False)
                 if res_vms.status_code == 200:
                     for vm in res_vms.json().get('value', []):
                         discovered.append({"uid": f"esxi_vm_{vm.get('vm')}", "name": vm.get('name'), "type": "vm", "layer": 2, "parent_uid": h_uid, "stack_group": h_name})
@@ -327,13 +327,13 @@ def _perform_discovery(plugins: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], L
             headers = {"Authorization": f"Bearer {tn_data['token']}", "Accept": "application/json"}
             base_url = f"{safe_url}/api/v2.0"
             
-            res_info = requests.get(f"{base_url}/system/info", headers=headers, timeout=5, verify=False)
+            res_info = requests.get(f"{base_url}/system/info", headers=headers, timeout=2, verify=False)
             if res_info.status_code == 200:
                 hostname = res_info.json().get('hostname', 'TrueNAS')
                 h_uid = "truenas_host"
                 discovered.append({"uid": h_uid, "name": hostname, "type": "host", "layer": 1})
                 
-                res_pools = requests.get(f"{base_url}/pool", headers=headers, timeout=5, verify=False)
+                res_pools = requests.get(f"{base_url}/pool", headers=headers, timeout=2, verify=False)
                 if res_pools.status_code == 200:
                     for pool in res_pools.json():
                         p_name = pool.get('name', 'Unknown_Pool')
@@ -347,10 +347,10 @@ def _perform_discovery(plugins: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], L
         try:
             url = ensure_url(pt_data['url'], 9000)
             headers = {"X-API-Key": pt_data['token']}
-            eps = requests.get(f"{url}/api/endpoints", headers=headers, timeout=4, verify=False).json()
+            eps = requests.get(f"{url}/api/endpoints", headers=headers, timeout=2, verify=False).json()
             for ep in eps:
                 ep_id = ep['Id']
-                conts = requests.get(f"{url}/api/endpoints/{ep_id}/docker/containers/json?all=1", headers=headers, timeout=4, verify=False).json()
+                conts = requests.get(f"{url}/api/endpoints/{ep_id}/docker/containers/json?all=1", headers=headers, timeout=2, verify=False).json()
                 for c in conts:
                     c_name = c['Names'][0].lstrip('/')
                     discovered.append({"uid": f"dkr_{ep_id}_{c['Id'][:8]}", "name": c_name, "type": "app", "layer": 3, "sub_type": "docker"})
@@ -363,7 +363,7 @@ def _perform_discovery(plugins: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], L
         try:
             url = ensure_url(pter_data['url'])
             headers = {"Authorization": f"Bearer {pter_data['token']}", "Accept": "application/json"}
-            res = requests.get(f"{url}/api/client", headers=headers, timeout=5, verify=False)
+            res = requests.get(f"{url}/api/client", headers=headers, timeout=2, verify=False)
             if res.status_code == 200:
                 for server in res.json().get('data', []):
                     s_uuid = server['attributes']['uuid']
@@ -493,7 +493,7 @@ def login(payload: LoginPayload):
     
     return {"status": "success", "token": token}
 
-@app.post("/api/setup/test-connection")
+@app.post("/api/setup/test-connection", dependencies=[Depends(verify_admin)])
 def test_connection(payload: TestPayload):
     try:
         plugin = payload.plugin
@@ -504,27 +504,27 @@ def test_connection(payload: TestPayload):
             data[k] = _get_decrypted_plugin_val(plugin, k, v)
 
         if plugin == "proxmox":
-            p = ProxmoxAPI(data['ip'], user=data['token_id'].split('!')[0], token_name=data['token_id'].split('!')[1], token_value=data['token_secret'], verify_ssl=False, timeout=3)
+            p = ProxmoxAPI(data['ip'], user=data['token_id'].split('!')[0], token_name=data['token_id'].split('!')[1], token_value=data['token_secret'], verify_ssl=False, timeout=2)
             if p.nodes.get(): 
                 return {"status": "success", "message": "Proxmox Authenticated."}
 
         elif plugin == "portainer":
             url = ensure_url(data['url'], 9000)
-            res = requests.get(f"{url}/api/system/info", headers={"X-API-Key": data['token']}, timeout=5, verify=False)
+            res = requests.get(f"{url}/api/system/info", headers={"X-API-Key": data['token']}, timeout=2, verify=False)
             if res.status_code == 200:
                 return {"status": "success", "message": "Portainer API Authenticated."}
             return {"status": "error", "detail": f"HTTP {res.status_code} Unauthorized"}
 
         elif plugin == "jellyfin":
             url = ensure_url(data['url'], 8096)
-            res = requests.get(f"{url}/System/Info", headers={"Authorization": f"MediaBrowser Token=\"{data['token']}\""}, timeout=5, verify=False)
+            res = requests.get(f"{url}/System/Info", headers={"Authorization": f"MediaBrowser Token=\"{data['token']}\""}, timeout=2, verify=False)
             if res.status_code == 200:
                 return {"status": "success", "message": "Jellyfin API Authenticated."}
             return {"status": "error", "detail": f"HTTP {res.status_code} Unauthorized"}
 
         elif plugin == "pterodactyl":
             url = ensure_url(data['url'])
-            res = requests.get(f"{url}/api/client", headers={"Authorization": f"Bearer {data['token']}", "Accept": "application/json"}, timeout=4, verify=False)
+            res = requests.get(f"{url}/api/client", headers={"Authorization": f"Bearer {data['token']}", "Accept": "application/json"}, timeout=2, verify=False)
             if res.status_code == 200: 
                 return {"status": "success", "message": "Pterodactyl Authenticated."}
             return {"status": "error", "detail": f"HTTP {res.status_code} Unauthorized"}
@@ -532,17 +532,17 @@ def test_connection(payload: TestPayload):
         elif plugin == "pihole":
             url = ensure_url(data['ip'], 80)
             auth = ("", data.get('app_password', '')) if data.get('app_password') else None
-            res = requests.get(f"{url}/api/stats/summary", auth=auth, timeout=3, verify=False)
+            res = requests.get(f"{url}/api/stats/summary", auth=auth, timeout=2, verify=False)
             # If v6 endpoint fails, fall back to v5
             if res.status_code == 404:
-                res = requests.get(f"{url}/admin/api.php?summary", auth=auth, timeout=3, verify=False)
+                res = requests.get(f"{url}/admin/api.php?summary", auth=auth, timeout=2, verify=False)
             if res.status_code == 200: 
                 return {"status": "success", "message": "Pi-Hole Connected."}
             return {"status": "error", "detail": f"HTTP {res.status_code}"}
 
         elif plugin == "truenas":
             url = ensure_url(data['ip'], 80)
-            res = requests.get(f"{url}/api/v2.0/system/info", headers={"Authorization": f"Bearer {data['token']}"}, timeout=3, verify=False)
+            res = requests.get(f"{url}/api/v2.0/system/info", headers={"Authorization": f"Bearer {data['token']}"}, timeout=2, verify=False)
             if res.status_code == 200: 
                 return {"status": "success", "message": "TrueNAS Connected."}
             return {"status": "error", "detail": f"HTTP {res.status_code}"}
@@ -551,11 +551,11 @@ def test_connection(payload: TestPayload):
             base_url = ensure_url(data['ip'], 443).replace("http://", "https://")
             auth_str = f"{data['user']}:{data['password']}"
             b64_auth = base64.b64encode(auth_str.encode()).decode()
-            res_auth = requests.post(f"{base_url}/rest/com/vmware/cis/session", headers={"Authorization": f"Basic {b64_auth}"}, timeout=4, verify=False)
+            res_auth = requests.post(f"{base_url}/rest/com/vmware/cis/session", headers={"Authorization": f"Basic {b64_auth}"}, timeout=2, verify=False)
             res_auth.raise_for_status()
             session_token = res_auth.json().get('value')
             
-            res_host = requests.get(f"{base_url}/rest/vcenter/host", headers={"vmware-api-session-id": session_token}, timeout=3, verify=False)
+            res_host = requests.get(f"{base_url}/rest/vcenter/host", headers={"vmware-api-session-id": session_token}, timeout=2, verify=False)
             if res_host.status_code == 200:
                 return {"status": "success", "message": "ESXi Authenticated."}
             return {"status": "error", "detail": f"HTTP {res_host.status_code}"}
@@ -566,7 +566,7 @@ def test_connection(payload: TestPayload):
             encoded_pwd = urllib.parse.quote(data['password'])
             url = f"{base_url}/webapi/auth.cgi?api=SYNO.API.Auth&version=3&method=login&account={encoded_user}&passwd={encoded_pwd}"
             
-            res = requests.get(url, timeout=5, verify=False)
+            res = requests.get(url, timeout=2, verify=False)
             if res.status_code == 200 and res.json().get('success'):
                 return {"status": "success", "message": "Synology DSM Authenticated."}
             return {"status": "error", "detail": "Invalid Credentials or Host Unreachable"}
@@ -581,7 +581,7 @@ def test_connection(payload: TestPayload):
                 for pwd_payload in [urllib.parse.quote(data['password']), urllib.parse.quote(b64_pwd)]:
                     try:
                         url = f"{base_url}/cgi-bin/{test_path}?user={encoded_user}&pwd={pwd_payload}"
-                        res = requests.get(url, timeout=4, verify=False)
+                        res = requests.get(url, timeout=2, verify=False)
                         if res.status_code == 200 and ('status="1"' in res.text or ('authPassed' in res.text and '<![CDATA[1]]' in res.text)):
                             success = True
                             break
@@ -594,7 +594,7 @@ def test_connection(payload: TestPayload):
 
         elif plugin == "plex":
             url = ensure_url(data['url'], 32400)
-            res = requests.get(f"{url}/status/sessions?X-Plex-Token={data['token']}", headers={"Accept": "application/json"}, timeout=3, verify=False)
+            res = requests.get(f"{url}/status/sessions?X-Plex-Token={data['token']}", headers={"Accept": "application/json"}, timeout=2, verify=False)
             if res.status_code == 200: 
                 return {"status": "success", "message": "Plex Authenticated."}
             return {"status": "error", "detail": f"HTTP {res.status_code}"}
@@ -905,6 +905,8 @@ def serve_setup():
 @app.get("/admin")
 def serve_admin(): 
     return FileResponse("static/admin.html")
+
+    
 
     
 
