@@ -99,13 +99,21 @@ def send_notification_sync(message, settings):
     tg_chat = settings.get('notify_telegram_chat_id')
     discord_url = decrypt_secret(settings.get('notify_discord_webhook_url'), settings.get('sys_encryption_key'))
     
+    # Auto-drain queue if no external notifications are configured
+    if not tg_token and not discord_url:
+        return True
+        
     success = False
+    permanent_failure = False
     
     if tg_token and tg_chat:
         try: 
             r = requests.post(f"https://api.telegram.org/bot{tg_token}/sendMessage", 
                           json={"chat_id": tg_chat, "text": message, "parse_mode": "HTML"}, timeout=5)
-            if r.status_code == 200: success = True
+            if r.status_code == 200: 
+                success = True
+            elif 400 <= r.status_code < 500 and r.status_code != 429:
+                permanent_failure = True
         except Exception: pass
     
     if discord_url:
@@ -113,16 +121,20 @@ def send_notification_sync(message, settings):
             # Convert HTML layout to Discord-native Markdown
             discord_msg = message.replace('<b>', '**').replace('</b>', '**').replace('<i>', '*').replace('</i>', '*').replace('<br>', '\n')
             r = requests.post(discord_url, json={"content": discord_msg}, timeout=5)
-            if r.status_code in [200, 204]: success = True
+            if r.status_code in [200, 204]: 
+                success = True
+            elif 400 <= r.status_code < 500 and r.status_code != 429:
+                permanent_failure = True
         except Exception: pass
         
-    return success
+    return success or permanent_failure
 
 def flush_notification_queue(settings):
     try:
         conn = sqlite3.connect(DB_NAME, timeout=15)
         conn.row_factory = sqlite3.Row
-        rows = conn.execute("SELECT id, message FROM notification_queue ORDER BY id ASC").fetchall()
+        # LIMIT 10 prevents massive lockups if the network was down for a long time
+        rows = conn.execute("SELECT id, message FROM notification_queue ORDER BY id ASC LIMIT 10").fetchall()
         
         for r in rows:
             if send_notification_sync(r['message'], settings):
@@ -1014,7 +1026,6 @@ def collect_and_store():
             else:
                 if db_down != 0.0: downtime_updates.append((0.0, uid))
                 
-                # FIX: Build dynamic recovery body so notifications have proper context instead of an empty string
                 recover_body = f"✅ <b>SYSTEM RECOVERED</b> ✅\n\n<b>Entity:</b> {name}\n<b>Status:</b> Back Online and responding."
                 
                 process_alert(uid=uid, entity_name=name, metric='offline', condition_met=False, trigger_count=3, 
@@ -1143,6 +1154,7 @@ if __name__ == "__main__":
 
     except KeyboardInterrupt: pass
 
+    
     
 
 
