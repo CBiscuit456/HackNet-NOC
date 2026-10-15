@@ -9,6 +9,12 @@ metrics.db-shm
 metrics.db.bak
 metrics.db.corrupt
 
+# Backups and broken git states
+.git_broken_backup/
+*.bak
+*.old
+*~
+
 # Python cache
 __pycache__/
 *.pyc
