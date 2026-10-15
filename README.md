@@ -1,4 +1,4 @@
-# HackNet NOC v2.8
+# HackNet NOC v3.0.0 LVE
 **A lightweight, headless monitoring dashboard built for homelabs.**
 
 ![HackNet NOC Dashboard](image.png)
@@ -11,10 +11,11 @@ It runs on a fast Python/FastAPI backend with a local SQLite database. This mean
 
 ## ✨ Features
 
-* **Smart Alert Grouping (No Alert Storms):** If a physical Proxmox host crashes, HackNet automatically links the dependent VMs and Docker containers to it. You get *one* critical alert for the host, instead of a massive flood of notifications for every single offline child service.
+* **Smart Alert Grouping (RCA Engine):** If a physical Proxmox host crashes, HackNet automatically links the dependent VMs and Docker containers to it. You get *one* critical alert for the host, instead of a massive flood of notifications for every single offline child service.
+* **Adaptive Mobile Triage:** Provides a full data-grid on desktop for deep configuration, and automatically morphs into a streamlined, touch-friendly "Action Center" on mobile for quick-pausing sensors and dispatching reports on the go.
+* **HUD Anchorage:** Customize your persistent top-level dashboard view by permanently anchoring the two infrastructure categories most critical to your environment.
 * **Auto-Discovery:** No manual data entry or massive `.env` files. Just plug in your API tokens in the web UI, and the app will automatically map out your nodes, VMs, storage pools, and containers.
-* **Only runs what you need:** Don't use Pi-hole or Pterodactyl? Just skip them during setup. The app only polls what you actually configure.
-* **Anti-Flapping:** Built-in micro-retries for network checks ensure you don't get spammed on Discord or Telegram just because of a 2-second ping spike.
+* **Anti-Flapping & Muting:** Built-in micro-retries for network checks ensure you don't get spammed on Discord or Telegram just because of a 2-second ping spike. Global Sirens can also be muted instantly from the Action Center.
 * **Daily Briefings:** Sends a clean infrastructure status summary to your Telegram or Discord at 08:00 and 20:00 every day.
 
 ---
@@ -139,6 +140,8 @@ sudo systemctl daemon-reload
 # Wipe the application directory
 sudo rm -rf /opt/hacknet-noc/
 ```
+
+
 
 
 
