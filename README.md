@@ -1,30 +1,32 @@
-# HackNet NOC v3.0.0 LVE
+# HackNet NOC v3.0.0
 **A lightweight, headless monitoring dashboard built for homelabs.**
 
 ![HackNet NOC Dashboard](image.png)
 
-HackNet NOC gives you a single pane of glass for your Proxmox nodes, VMware ESXi hosts, NAS storage (TrueNAS/Synology/QNAP), Docker containers, game servers (Pterodactyl), Pi-hole, and media servers. 
+I've spent the last few months building HackNet NOC. It started out as a custom monitor just for my own homelab, and after a lot of adapting and rewriting, it evolved into a fully-fledged, enterprise-grade open-source dashboard.
 
-It runs on a fast Python/FastAPI backend with a local SQLite database. This means it's super light on resources, easy to deploy, and doesn't require you to spin up massive external databases like PostgreSQL or Redis just to monitor your network.
+The goal was simple: I wanted a unified view of my Proxmox nodes, VMware ESXi hosts, NAS storage (TrueNAS/Synology/QNAP), Docker containers, Pterodactyl game servers, and media services. But I *didn't* want to spin up a massive, heavy stack with PostgreSQL or Redis just to do it.
+
+HackNet runs on a fast Python/FastAPI backend with a local SQLite database. It's super light on resources, incredibly easy to deploy, and actually enjoyable to use.
 
 ---
 
-## ✨ Features
+## ✨ Why I built this (and what makes it different)
 
-* **Smart Alert Grouping (RCA Engine):** If a physical Proxmox host crashes, HackNet automatically links the dependent VMs and Docker containers to it. You get *one* critical alert for the host, instead of a massive flood of notifications for every single offline child service.
-* **Adaptive Mobile Triage:** Provides a full data-grid on desktop for deep configuration, and automatically morphs into a streamlined, touch-friendly "Action Center" on mobile for quick-pausing sensors and dispatching reports on the go.
-* **HUD Anchorage:** Customize your persistent top-level dashboard view by permanently anchoring the two infrastructure categories most critical to your environment.
-* **Auto-Discovery:** No manual data entry or massive `.env` files. Just plug in your API tokens in the web UI, and the app will automatically map out your nodes, VMs, storage pools, and containers.
-* **Anti-Flapping & Muting:** Built-in micro-retries for network checks ensure you don't get spammed on Discord or Telegram just because of a 2-second ping spike. Global Sirens can also be muted instantly from the Action Center.
-* **Daily Briefings:** Sends a clean infrastructure status summary to your Telegram or Discord at 08:00 and 20:00 every day.
+* **Root Cause Analysis (No Alert Spam):** If a physical Proxmox host crashes, HackNet automatically links the dependent VMs and Docker containers to it. You get *one* critical alert for the host, instead of a massive flood of notifications for every single offline child service.
+* **Auto-Discovery:** I hate managing massive `.env` files. Just plug your API tokens into the Web UI during setup, and the app will automatically scan and map out your nodes, VMs, storage pools, and containers.
+* **Mobile-Friendly Action Center:** The desktop view gives you a dense data-grid for deep configuration. If you open it on your phone, it automatically morphs into a streamlined "Action Center" so you can quickly pause sensors or mute global sirens on the go.
+* **Anti-Flapping:** Built-in micro-retries for network checks ensure you don't get spammed on Discord or Telegram just because your network had a 2-second ping spike. 
+* **Custom Pinned HUD:** You can pin the two infrastructure categories you care about most permanently to the top of your dashboard.
+* **Daily Briefings:** It compiles a clean infrastructure status summary and fires it off to your Telegram or Discord at 08:00 and 20:00 every day.
 
 ---
 
 ## 🏗️ Where to host this
 
-**Best Practice:** It is highly recommended to run this on a separate, dedicated device (like a Raspberry Pi, a separate mini-PC, or a cheap VPS). 
+**Best Practice:** It is highly recommended to run this on a separate, dedicated device (like a Raspberry Pi, an old mini-PC, or a cheap VPS). 
 
-*Do not host HackNet on the exact server it is supposed to be monitoring.* If your main hypervisor loses power or crashes, HackNet will go down with it, and it won't be able to send you an offline alert!
+*Do not host HackNet on the exact server it is supposed to be monitoring.* If your main hypervisor loses power or crashes, HackNet will go down with it, and it won't be able to send you the offline alert!
 
 ---
 
@@ -70,7 +72,7 @@ Just paste this into your terminal:
 ```bash
 curl -sSL https://raw.githubusercontent.com/CBiscuit456/hacknet-noc/master/install.sh | sudo bash
 ```
-*This script installs the required dependencies, clones the app to `/opt/hacknet-noc`, sets up the Python environment, and starts the background systemd services.*
+*This script installs the required dependencies, clones the app to `/opt/hacknet-noc`, sets up the Python environment, and starts the background systemd services automatically.*
 
 ---
 
@@ -78,7 +80,7 @@ curl -sSL https://raw.githubusercontent.com/CBiscuit456/hacknet-noc/master/insta
 
 When you visit the dashboard for the first time, the **Web Setup Wizard** will guide you through the process. You'll be asked to provide:
 * A Master Password (which securely encrypts your configuration and API keys in the database).
-* Your Core WAN Routing IP (so the app knows if your actual internet is down, vs just a local network issue).
+* Your Core WAN Routing IP (so the app knows if your actual ISP is down, vs just a local network issue).
 * Your Integration URLs and API Tokens.
 * Your Telegram Bot / Discord Webhook URL for alerting.
 
@@ -140,6 +142,7 @@ sudo systemctl daemon-reload
 # Wipe the application directory
 sudo rm -rf /opt/hacknet-noc/
 ```
+
 
 
 
