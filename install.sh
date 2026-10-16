@@ -91,9 +91,14 @@ systemctl enable hacknet-api hacknet-collector
 systemctl restart hacknet-api hacknet-collector
 
 echo -e "\033[1;36m[6/6] Configuring UFW Firewall...\033[0m"
-ufw allow ssh
-ufw allow 8000/tcp
-ufw --force enable
+# Safely allow the port without forcefully enabling the firewall to prevent SSH lockouts on custom ports
+if command -v ufw >/dev/null 2>&1; then
+    ufw allow 8000/tcp comment 'HackNet NOC API'
+    echo -e "   -> Port 8000 allowed in UFW."
+    echo -e "   -> \033[1;33mNOTE: If UFW is currently inactive, you must enable it manually.\033[0m"
+else
+    echo -e "   -> UFW not installed, skipping firewall configuration."
+fi
 
 echo -e "\n\033[1;32m====================================\033[0m"
 echo -e "\033[1;32m DEPLOYMENT COMPLETE! \033[0m"

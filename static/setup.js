@@ -37,13 +37,18 @@ function setupWizard() {
         async checkStatus() {
             try {
                 const res = await fetch('/api/setup/status');
-                const data = await res.json();
-                this.adminExists = data.admin_exists;
+                const data = await res.json().catch(() => null);
                 
-                this.jwtToken = sessionStorage.getItem('noc_jwt') || '';
-                
-                if (data.is_setup_complete) { window.location.href = '/'; }
-            } catch (e) { this.authError = "Backend offline or starting up..."; }
+                if (data) {
+                    this.adminExists = data.admin_exists;
+                    this.jwtToken = sessionStorage.getItem('noc_jwt') || '';
+                    if (data.is_setup_complete) { window.location.href = '/'; }
+                } else {
+                    this.authError = "Backend provided invalid response.";
+                }
+            } catch (e) { 
+                this.authError = "Backend offline or starting up..."; 
+            }
         },
 
         async createAdmin() {
@@ -64,10 +69,12 @@ function setupWizard() {
                     sessionStorage.setItem('noc_jwt', this.jwtToken);
                     this.step = 2;
                 } else {
-                    const err = await res.json();
+                    const err = await res.json().catch(() => ({ detail: `HTTP Error ${res.status}` }));
                     this.authError = err.detail || "FAILED TO CREATE ACCOUNT.";
                 }
-            } catch (e) { this.authError = "NETWORK ERROR."; }
+            } catch (e) { 
+                this.authError = "NETWORK ERROR."; 
+            }
         },
 
         async validateAuth() {
@@ -87,8 +94,12 @@ function setupWizard() {
                     this.authError = ""; 
                     sessionStorage.setItem('noc_jwt', this.jwtToken); 
                     this.step = 2; 
+                } else {
+                    this.authError = "SERVER ERROR: Please try again.";
                 }
-            } catch (e) { this.authError = "NETWORK ERROR."; }
+            } catch (e) { 
+                this.authError = "NETWORK ERROR."; 
+            }
         },
 
         togglePlugin(name) { this.plugins[name].enabled = !this.plugins[name].enabled; },
@@ -97,13 +108,21 @@ function setupWizard() {
         async testConnection(plugin) {
             this.plugins[plugin].testStatus = 'testing';
             this.plugins[plugin].testMessage = 'Contacting Server...';
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15-second timeout for individual plugin tests
+            
             try {
                 const res = await fetch('/api/setup/test-connection', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.jwtToken}` },
-                    body: JSON.stringify({ plugin: plugin, data: this.plugins[plugin].data })
+                    body: JSON.stringify({ plugin: plugin, data: this.plugins[plugin].data }),
+                    signal: controller.signal
                 });
-                const data = await res.json();
+                
+                clearTimeout(timeoutId);
+                const data = await res.json().catch(() => ({ status: 'error', detail: `HTTP ${res.status} Bad Response` }));
+                
                 if (data.status === 'success') {
                     this.plugins[plugin].testStatus = 'success';
                     this.plugins[plugin].testMessage = data.message;
@@ -112,14 +131,18 @@ function setupWizard() {
                     this.plugins[plugin].testMessage = data.detail || 'Connection Failed';
                 }
             } catch (e) {
+                clearTimeout(timeoutId);
                 this.plugins[plugin].testStatus = 'error';
-                this.plugins[plugin].testMessage = "Backend Network Error";
+                this.plugins[plugin].testMessage = e.name === 'AbortError' ? "Request Timed Out" : "Backend Network Error";
             }
         },
 
         async runDiscovery() {
             this.isDiscovering = true;
             this.discoveryErrors = [];
+            
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 45000); // 45-second timeout for full network sweep
             
             try {
                 let pluginPayload = {};
@@ -132,10 +155,13 @@ function setupWizard() {
                 const res = await fetch('/api/setup/discover', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.jwtToken}` },
-                    body: JSON.stringify({ plugins: pluginPayload })
+                    body: JSON.stringify({ plugins: pluginPayload }),
+                    signal: controller.signal
                 });
                 
-                const data = await res.json();
+                clearTimeout(timeoutId);
+                
+                const data = await res.json().catch(() => ({ status: 'error', detail: `HTTP ${res.status} Bad Response` }));
                 if (data.status === 'success') {
                     this.discoveredTargets = data.discovered || [];
                     this.proposedStacks = data.proposed_stacks || [];
@@ -152,9 +178,12 @@ function setupWizard() {
                         }
                     });
                     this.step = 4;
+                } else {
+                    this.discoveryErrors = [data.detail || "Invalid response from discovery engine."];
                 }
             } catch (e) {
-                this.discoveryErrors = ["Failed to reach the local discovery engine. Check your API logs."];
+                clearTimeout(timeoutId);
+                this.discoveryErrors = [e.name === 'AbortError' ? "Discovery timed out after 45 seconds." : "Failed to reach the local discovery engine. Check your API logs."];
             }
             this.isDiscovering = false;
         },
@@ -220,12 +249,17 @@ function setupWizard() {
                 if (res.ok) {
                     setTimeout(() => { window.location.href = '/'; }, 1000);
                 } else {
-                    const err = await res.json();
+                    const err = await res.json().catch(() => ({ detail: `HTTP Error ${res.status}` }));
                     alert(err.detail || "Setup failed."); 
                     this.isSaving = false;
                 }
-            } catch (e) { alert("Network error. Could not connect to API."); this.isSaving = false; }
+            } catch (e) { 
+                alert("Network error. Could not connect to API."); 
+                this.isSaving = false; 
+            }
         }
     }
 }
+
+
 

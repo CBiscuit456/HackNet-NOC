@@ -80,9 +80,15 @@ function nocApp() {
             const minLoadTime = new Promise(resolve => setTimeout(resolve, 1500));
             const dataLoad = this.fetchData();
             
+            // Recursive polling loop to prevent API pile-ups
+            const pollData = async () => {
+                await this.fetchData();
+                setTimeout(pollData, 10000);
+            };
+            
             Promise.all([minLoadTime, dataLoad]).then(() => {
                 this.isLoading = false;
-                setInterval(() => this.fetchData(), 10000);
+                setTimeout(pollData, 10000);
             });
         },
         
@@ -160,8 +166,8 @@ function nocApp() {
                         this.hostDiskTotal = host.disk_total || 1;
                         this.hostCpuThresh = host.cpu_threshold || 90.0;
                         this.hostMemThresh = host.mem_threshold || 90.0;
-                        this.hostRx = host.net_in || 0; // Removed premature .toFixed(1) to preserve precision
-                        this.hostTx = host.net_out || 0; // Removed premature .toFixed(1) to preserve precision
+                        this.hostRx = host.net_in || 0; 
+                        this.hostTx = host.net_out || 0; 
                         this.hostUptime = parseInt(settings.host_uptime || 0);
                     } else {
                         this.hostName = 'NO HOST';
@@ -224,7 +230,9 @@ function nocApp() {
                         this.chartObj.update();
                     }
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.warn("NOC Background Poll Failed: ", e);
+            }
         },
 
         isVerifying(t) {
@@ -374,6 +382,8 @@ function nocApp() {
         }
     }
 }
+
+
 
 
 

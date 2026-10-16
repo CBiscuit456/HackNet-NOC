@@ -26,10 +26,14 @@ import re
 import base64
 import urllib.parse
 import xml.etree.ElementTree as ET
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from proxmoxer import ProxmoxAPI
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
+
+# Configure basic logging to replace silent 'pass' blocks
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Suppress insecure HTTPS warnings for local self-signed homelab APIs
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -69,7 +73,8 @@ def decrypt_secret(cipher_text: str, key: str) -> str:
     try:
         cipher = Fernet(key.encode())
         return cipher.decrypt(cipher_text.encode()).decode()
-    except Exception:
+    except Exception as e:
+        logging.debug(f"Decryption fallback used: {e}")
         return cipher_text # Fallback if unencrypted during migration
 
 def format_time_delta(seconds):
@@ -88,11 +93,13 @@ def log_event(entity_name, event_type, message, db_conn=None):
             db_conn.execute('INSERT INTO event_logs (entity_name, event_type, message) VALUES (?, ?, ?)', (entity_name, event_type, message))
         else:
             conn = sqlite3.connect(DB_NAME, timeout=15)
-            conn.execute('INSERT INTO event_logs (entity_name, event_type, message) VALUES (?, ?, ?)', (entity_name, event_type, message))
-            conn.commit()
-            conn.close()
-    except Exception:
-        pass
+            try:
+                conn.execute('INSERT INTO event_logs (entity_name, event_type, message) VALUES (?, ?, ?)', (entity_name, event_type, message))
+                conn.commit()
+            finally:
+                conn.close()
+    except Exception as e:
+        logging.error(f"Failed to log event for {entity_name}: {e}")
 
 def send_notification_sync(message, settings):
     tg_token = decrypt_secret(settings.get('notify_telegram_token'), settings.get('sys_encryption_key'))
@@ -114,7 +121,8 @@ def send_notification_sync(message, settings):
                 success = True
             elif 400 <= r.status_code < 500 and r.status_code != 429:
                 permanent_failure = True
-        except Exception: pass
+        except Exception as e: 
+            logging.warning(f"Telegram dispatch failed: {e}")
     
     if discord_url:
         try:
@@ -125,35 +133,42 @@ def send_notification_sync(message, settings):
                 success = True
             elif 400 <= r.status_code < 500 and r.status_code != 429:
                 permanent_failure = True
-        except Exception: pass
+        except Exception as e: 
+            logging.warning(f"Discord dispatch failed: {e}")
         
     return success or permanent_failure
 
 def flush_notification_queue(settings):
     try:
         conn = sqlite3.connect(DB_NAME, timeout=15)
-        conn.row_factory = sqlite3.Row
-        # LIMIT 10 prevents massive lockups if the network was down for a long time
-        rows = conn.execute("SELECT id, message FROM notification_queue ORDER BY id ASC LIMIT 10").fetchall()
-        
-        for r in rows:
-            if send_notification_sync(r['message'], settings):
-                conn.execute("DELETE FROM notification_queue WHERE id=?", (r['id'],))
-            else:
-                break 
-                
-        conn.commit()
-        conn.close()
-    except Exception: pass
+        try:
+            conn.row_factory = sqlite3.Row
+            # LIMIT 10 prevents massive lockups if the network was down for a long time
+            rows = conn.execute("SELECT id, message FROM notification_queue ORDER BY id ASC LIMIT 10").fetchall()
+            
+            for r in rows:
+                if send_notification_sync(r['message'], settings):
+                    conn.execute("DELETE FROM notification_queue WHERE id=?", (r['id'],))
+                else:
+                    break 
+                    
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception as e: 
+        logging.error(f"Failed to flush notification queue: {e}")
 
 def get_settings():
     try:
         conn = sqlite3.connect(DB_NAME, timeout=15)
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute("SELECT key, value FROM sys_settings").fetchall()
-        conn.close()
-        return {r['key']: r['value'] for r in rows}
-    except Exception:
+        try:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("SELECT key, value FROM sys_settings").fetchall()
+            return {r['key']: r['value'] for r in rows}
+        finally:
+            conn.close()
+    except Exception as e:
+        logging.error(f"Failed to load settings: {e}")
         return {}
 
 def generate_full_report(title="📊 <b>HackNet Status Report</b>"):
@@ -162,10 +177,14 @@ def generate_full_report(title="📊 <b>HackNet Status Report</b>"):
 
     try:
         conn = sqlite3.connect(DB_NAME, timeout=15)
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute("SELECT m.entity_name, m.entity_type, m.status, m.ping_ms, m.cpu_usage, m.mem_used, m.mem_total, t.is_enabled FROM latest_metrics m LEFT JOIN monitored_targets t ON m.uid = t.uid").fetchall()
-        conn.close()
-    except Exception: return
+        try:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("SELECT m.entity_name, m.entity_type, m.status, m.ping_ms, m.cpu_usage, m.mem_used, m.mem_total, t.is_enabled FROM latest_metrics m LEFT JOIN monitored_targets t ON m.uid = t.uid").fetchall()
+        finally:
+            conn.close()
+    except Exception as e: 
+        logging.error(f"Failed to fetch data for report: {e}")
+        return
 
     net_down, vm_down, lxc_down, app_down, game_down, storage_down, http_down = [], [], [], [], [], [], []
     vms_tot, lxc_tot, app_tot, game_tot, storage_tot, http_tot = 0, 0, 0, 0, 0, 0
@@ -222,10 +241,13 @@ def generate_full_report(title="📊 <b>HackNet Status Report</b>"):
     if not send_notification_sync(msg, settings):
         try:
             conn = sqlite3.connect(DB_NAME, timeout=15)
-            conn.execute('INSERT INTO notification_queue (message) VALUES (?)', (msg,))
-            conn.commit()
-            conn.close()
-        except Exception: pass
+            try:
+                conn.execute('INSERT INTO notification_queue (message) VALUES (?)', (msg,))
+                conn.commit()
+            finally:
+                conn.close()
+        except Exception as e: 
+            logging.error(f"Failed to queue report notification: {e}")
 
 def process_alert(uid, entity_name, metric, condition_met, trigger_count, 
                   alert_body, recover_body, log_trigger, log_recover, 
@@ -430,11 +452,13 @@ class PiholePlugin(BasePlugin):
                 if ads_percentage is None: ads_percentage = 0.0
                 
                 conn = sqlite3.connect(DB_NAME, timeout=15)
-                conn.execute('DELETE FROM pihole_stats')
-                conn.execute('INSERT INTO pihole_stats (id, status, domains_blocked, queries_today, ads_blocked, ads_percentage) VALUES (1, ?, ?, ?, ?, ?)', 
-                             (status_val, domains_blocked, queries, ads_blocked, ads_percentage))
-                conn.commit()
-                conn.close()
+                try:
+                    conn.execute('DELETE FROM pihole_stats')
+                    conn.execute('INSERT INTO pihole_stats (id, status, domains_blocked, queries_today, ads_blocked, ads_percentage) VALUES (1, ?, ?, ?, ?, ?)', 
+                                 (status_val, domains_blocked, queries, ads_blocked, ads_percentage))
+                    conn.commit()
+                finally:
+                    conn.close()
                 
                 self.ctx.metrics_batch.append((uid, name, 'app', 'running', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
                 
@@ -519,7 +543,7 @@ class TrueNASPlugin(BasePlugin):
 
                     if self.ctx.cfg.get(p_uid, {}).get('enabled', 1) != 0:
                         status = 'running' if pool.get('status') == 'ONLINE' else 'stopped'
-                        self.ctx.metrics_batch.append((p_uid, f"Pool-{p_name}", 'storage', status, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+                        self.ctx.metrics_batch.append((p_uid, f"Pool-{p_name}", 'storage', status, 0.0, 0.0, 0.0, storage.get('used', 0)/1073741824, storage.get('total', 1)/1073741824, 0.0, 0.0, 0.0, 0.0, 0.0))
                     else:
                         self.ctx.metrics_batch.append((p_uid, f"Pool-{p_name}", 'storage', 'paused', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
 
@@ -574,7 +598,7 @@ class ESXiPlugin(BasePlugin):
 
                     if self.ctx.cfg.get(v_uid, {}).get('enabled', 1) != 0:
                         status = 'running' if vm.get('power_state') == 'POWERED_ON' else 'stopped'
-                        # Patch ESXi "Zero Metrics" hole by capturing max memory (default REST API limits live usage query without perfMgr)
+                        # Patch ESXi "Zero Metrics" hole by capturing max memory
                         v_mt = (vm.get('memory_size_MiB') or 1024) / 1024.0
                         self.ctx.metrics_batch.append((v_uid, vm_name, 'vm', status, 0.0, 0.0, v_mt, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
                     else:
@@ -627,7 +651,8 @@ class ProxmoxPlugin(BasePlugin):
                                 rx_mbps = (point['netin'] * 8) / 1_000_000
                                 tx_mbps = (point['netout'] * 8) / 1_000_000
                                 break
-                except Exception: pass
+                except Exception as e:
+                    logging.debug(f"Proxmox RRD fetch warning: {e}")
                 
                 self.ctx.sys_updates.append(('host_uptime', str(host_status.get('uptime', 0))))
                 self.ctx.metrics_batch.append((h_uid, my_node, 'host', 'running', host_cpu, host_mu, host_mt, host_du, host_dt, rx_mbps, tx_mbps, 0.0, 0.0, 0.0))
@@ -667,7 +692,8 @@ class ProxmoxPlugin(BasePlugin):
                         try:
                             v_stat = proxmox.nodes(my_node).qemu(vm.get('vmid')).status.current.get()
                             v_cpu, v_mu, v_mt = (v_stat.get('cpu') or 0)*100, (v_stat.get('mem') or 0)/1073741824, (v_stat.get('maxmem') or 0)/1073741824
-                        except: pass
+                        except Exception as e:
+                            logging.debug(f"Proxmox VM {v_name} deep metrics fetch warning: {e}")
                         self.ctx.metrics_batch.append((v_uid, v_name, 'vm', 'running', v_cpu, v_mu, v_mt, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
                     else:
                         self.ctx.metrics_batch.append((v_uid, v_name, 'vm', 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
@@ -701,7 +727,8 @@ class PterodactylPlugin(BasePlugin):
                             if det.status_code == 200:
                                 limit = max(det.json()['attributes']['limits']['cpu'], 100)
                                 PTERO_LIMITS_CACHE[uuid_str] = limit
-                        except: pass
+                        except Exception as e:
+                            logging.debug(f"Pterodactyl limits fetch error: {e}")
 
                     actual_cpu = (r['resources'].get('cpu_absolute', 0.0) / limit) * 100
                     mem_used = r['resources'].get('memory_bytes', 0.0) / (1024**3)
@@ -711,10 +738,13 @@ class PterodactylPlugin(BasePlugin):
                         res_details = requests.get(f"{url}/api/client/servers/{uuid_str}", headers=headers, timeout=5)
                         if res_details.status_code == 200:
                             mem_total = (res_details.json()['attributes']['limits']['memory'] / 1024)
-                    except: pass
+                    except Exception as e:
+                        logging.debug(f"Pterodactyl mem limits error: {e}")
                     
                     return (uid, name, 'game', status, actual_cpu, mem_used, mem_total, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-            except: time.sleep(0.5)
+            except Exception as e:
+                logging.debug(f"Pterodactyl node fetch retry for {name}: {e}")
+                time.sleep(0.5)
         return (uid, name, 'game', 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
     def run(self):
@@ -784,9 +814,10 @@ class SynologyPlugin(BasePlugin):
                         util_res = requests.get(util_url, timeout=5, verify=False).json()
                         if util_res.get('success'):
                             cpu = float(util_res['data']['cpu']['system_load'] + util_res['data']['cpu']['user_load'])
-                            mem_u = float(util_res['data']['memory']['real_usage']) / 100.0 # Stored as % of 1
+                            mem_u = float(util_res['data']['memory']['real_usage']) / 100.0
                             mem_t = 1.0
-                    except Exception: pass
+                    except Exception as e:
+                        logging.debug(f"Synology util fetch error: {e}")
                     
                     self.ctx.metrics_batch.append((uid, name, 'storage', 'running', cpu, mem_u, mem_t, disk_u, disk_t, 0.0, 0.0, 0.0, 0.0, 0.0))
                     
@@ -829,7 +860,6 @@ class QNAPPlugin(BasePlugin):
                 session = requests.Session()
                 success = False
                 
-                # Test multiple endpoints for QTS 4 / QTS 5 compatibility
                 for test_path in ["authLogin.cgi", "filemanager/wfm2Login.cgi"]:
                     try:
                         auth_url = f"{base_url}/cgi-bin/{test_path}?user={encoded_user}&pwd={encoded_pwd}"
@@ -837,7 +867,8 @@ class QNAPPlugin(BasePlugin):
                         if res.status_code == 200 and ('status="1"' in res.text or ('authPassed' in res.text and '<![CDATA[1]]' in res.text)):
                             success = True
                             break
-                    except Exception: pass
+                    except Exception as e:
+                        logging.debug(f"QNAP Auth attempt failed for {test_path}: {e}")
                 
                 if success:
                     cpu, mem_u, mem_t, disk_u, disk_t = 0.0, 0.0, 1.0, 0.0, 1.0
@@ -848,7 +879,8 @@ class QNAPPlugin(BasePlugin):
                             cpu_node = root.find('cpuUsage')
                             if cpu_node is not None:
                                 cpu = float(cpu_node.text.replace('%', ''))
-                    except Exception: pass
+                    except Exception as e:
+                        logging.debug(f"QNAP sysinfo fetch failed: {e}")
                     
                     self.ctx.metrics_batch.append((uid, name, 'storage', 'running', cpu, mem_u, mem_t, disk_u, disk_t, 0.0, 0.0, 0.0, 0.0, 0.0))
                     
@@ -862,13 +894,15 @@ class QNAPPlugin(BasePlugin):
                         PLUGIN_ERROR_STATE['qnap'] = True
             except Exception as e:
                 self.ctx.metrics_batch.append((uid, name, 'storage', 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
+                logging.error(f"QNAP processing error: {e}")
         else:
             self.ctx.metrics_batch.append((uid, name, 'storage', 'paused', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
 
 class ManualMonitorsPlugin(BasePlugin):
     def check_ping(self, uid, name, ip):
         try:
-            out = subprocess.run(['ping', '-c', '4', '-W', '1', ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            # Explicit timeout prevents OS-level process hangs
+            out = subprocess.run(['ping', '-c', '4', '-W', '1', ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
             
             pl_match = re.search(r'([\d\.]+)%\s*packet loss', out.stdout)
             packet_loss = float(pl_match.group(1)) if pl_match else 100.0
@@ -879,7 +913,8 @@ class ManualMonitorsPlugin(BasePlugin):
             
             if out.returncode == 0 or packet_loss < 100.0:
                 return (uid, name, 'network', 'running', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, ping_ms, packet_loss, jitter_ms)
-        except: pass
+        except Exception as e:
+            logging.debug(f"Ping monitor error for {name}: {e}")
         return (uid, name, 'network', 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 100.0, 0.0)
 
     def check_tcp(self, uid, name, ip, port):
@@ -887,7 +922,9 @@ class ManualMonitorsPlugin(BasePlugin):
             try:
                 with socket.create_connection((ip, port), timeout=3): 
                     return (uid, name, 'app', 'running', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-            except: time.sleep(0.5)
+            except Exception as e:
+                logging.debug(f"TCP monitor error for {name}: {e}")
+                time.sleep(0.5)
         return (uid, name, 'app', 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
     def check_http(self, uid, name, url):
@@ -897,7 +934,9 @@ class ManualMonitorsPlugin(BasePlugin):
                 res = requests.get(url, timeout=5, verify=False)
                 if res.status_code < 400:
                     return (uid, name, 'http', 'running', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, res.elapsed.total_seconds()*1000, 0.0, 0.0)
-            except: time.sleep(0.5)
+            except Exception as e:
+                logging.debug(f"HTTP monitor error for {name}: {e}")
+                time.sleep(0.5)
         return (uid, name, 'http', 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 100.0, 0.0)
 
     def run(self):
@@ -926,14 +965,16 @@ def collect_and_store():
 
     try:
         conn = sqlite3.connect(DB_NAME, timeout=15)
-        cfg = {r[0]: {
-            'name': r[1], 'type': r[2], 'ip': r[3], 'port': r[4], 'uuid': r[5], 'enabled': r[6], 
-            'down_since': r[7], 'cooldown': r[8], 'cpu_thresh': r[9], 'mem_thresh': r[10], 'location': r[11], 
-            'parent_uid': r[12], 'stack_group': r[13]} 
-               for r in conn.execute("SELECT uid, name, entity_type, target_address, port, uuid, is_enabled, down_since, cooldown_interval, cpu_threshold, mem_threshold, location, parent_uid, stack_group FROM monitored_targets").fetchall()}
-        conn.close()
+        try:
+            cfg = {r[0]: {
+                'name': r[1], 'type': r[2], 'ip': r[3], 'port': r[4], 'uuid': r[5], 'enabled': r[6], 
+                'down_since': r[7], 'cooldown': r[8], 'cpu_thresh': r[9], 'mem_thresh': r[10], 'location': r[11], 
+                'parent_uid': r[12], 'stack_group': r[13]} 
+                   for r in conn.execute("SELECT uid, name, entity_type, target_address, port, uuid, is_enabled, down_since, cooldown_interval, cpu_threshold, mem_threshold, location, parent_uid, stack_group FROM monitored_targets").fetchall()}
+        finally:
+            conn.close()
     except Exception as e: 
-        print(f"Database Read Error: {e}")
+        logging.error(f"Database Read Error: {e}")
         return
 
     downtime_updates = []
@@ -961,7 +1002,8 @@ def collect_and_store():
             try:
                 res = future.result()
                 if res: ctx.metrics_batch.append(res)
-            except Exception: pass
+            except Exception as e:
+                logging.warning(f"Future thread timeout or execution error: {e}")
             
         for uid, data in cfg.items():
             if data['type'] in ['game', 'host', 'vm', 'lxc', 'storage', 'app'] and data['enabled'] != 0 and uid not in ctx.seen_uids:
@@ -1061,36 +1103,42 @@ def collect_and_store():
         # 5. Database Writing Phase (Batched to prevent locks)
         try:
             w_conn = sqlite3.connect(DB_NAME, timeout=15)
-            for uid, name, e_type, target, port, uuid_str, loc, parent_uid, stack_group in ctx.new_entities:
-                w_conn.execute('INSERT OR IGNORE INTO monitored_targets (uid, name, entity_type, target_address, port, uuid, is_enabled, down_since, cooldown_interval, cpu_threshold, mem_threshold, location, parent_uid, stack_group) VALUES (?, ?, ?, ?, ?, ?, 1, 0.0, 3600, 90.0, 90.0, ?, ?, ?)', (uid, name, e_type, target, port, uuid_str, loc, parent_uid, stack_group))
-            for stamp, uid in downtime_updates:
-                w_conn.execute('UPDATE monitored_targets SET down_since = ? WHERE uid = ?', (stamp, uid))
-            
-            w_conn.executemany('INSERT INTO metrics (uid, entity_name, entity_type, status, cpu_usage, mem_used, mem_total, disk_used, disk_total, net_in, net_out, ping_ms, packet_loss, jitter_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', ctx.metrics_batch)
-            w_conn.executemany('INSERT OR REPLACE INTO latest_metrics (uid, entity_name, entity_type, status, cpu_usage, mem_used, mem_total, disk_used, disk_total, net_in, net_out, ping_ms, packet_loss, jitter_ms, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)', ctx.metrics_batch)
-            
-            if alert_updates:
-                w_conn.executemany('''INSERT INTO alert_state (uid, is_alerting, first_alert_time, last_alert_time, count) VALUES (?, ?, ?, ?, ?) ON CONFLICT(uid) DO UPDATE SET is_alerting=excluded.is_alerting, first_alert_time=excluded.first_alert_time, last_alert_time=excluded.last_alert_time, count=excluded.count''', alert_updates)
+            try:
+                for uid, name, e_type, target, port, uuid_str, loc, parent_uid, stack_group in ctx.new_entities:
+                    w_conn.execute('INSERT OR IGNORE INTO monitored_targets (uid, name, entity_type, target_address, port, uuid, is_enabled, down_since, cooldown_interval, cpu_threshold, mem_threshold, location, parent_uid, stack_group) VALUES (?, ?, ?, ?, ?, ?, 1, 0.0, 3600, 90.0, 90.0, ?, ?, ?)', (uid, name, e_type, target, port, uuid_str, loc, parent_uid, stack_group))
+                for stamp, uid in downtime_updates:
+                    w_conn.execute('UPDATE monitored_targets SET down_since = ? WHERE uid = ?', (stamp, uid))
                 
-            if event_logs:
-                w_conn.executemany('INSERT INTO event_logs (entity_name, event_type, message) VALUES (?, ?, ?)', event_logs)
+                w_conn.executemany('INSERT INTO metrics (uid, entity_name, entity_type, status, cpu_usage, mem_used, mem_total, disk_used, disk_total, net_in, net_out, ping_ms, packet_loss, jitter_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', ctx.metrics_batch)
+                w_conn.executemany('INSERT OR REPLACE INTO latest_metrics (uid, entity_name, entity_type, status, cpu_usage, mem_used, mem_total, disk_used, disk_total, net_in, net_out, ping_ms, packet_loss, jitter_ms, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)', ctx.metrics_batch)
                 
-            if ctx.sys_updates: 
-                w_conn.executemany("INSERT OR REPLACE INTO sys_settings (key, value) VALUES (?, ?)", ctx.sys_updates)
-            
-            w_conn.commit()
-            w_conn.close()
-        except Exception: pass
+                if alert_updates:
+                    w_conn.executemany('''INSERT INTO alert_state (uid, is_alerting, first_alert_time, last_alert_time, count) VALUES (?, ?, ?, ?, ?) ON CONFLICT(uid) DO UPDATE SET is_alerting=excluded.is_alerting, first_alert_time=excluded.first_alert_time, last_alert_time=excluded.last_alert_time, count=excluded.count''', alert_updates)
+                    
+                if event_logs:
+                    w_conn.executemany('INSERT INTO event_logs (entity_name, event_type, message) VALUES (?, ?, ?)', event_logs)
+                    
+                if ctx.sys_updates: 
+                    w_conn.executemany("INSERT OR REPLACE INTO sys_settings (key, value) VALUES (?, ?)", ctx.sys_updates)
+                
+                w_conn.commit()
+            finally:
+                w_conn.close()
+        except Exception as e:
+            logging.error(f"Database Write Error: {e}")
 
     # 6. Push Notifications out of DB lock
     for msg in notification_queue:
         if not send_notification_sync(msg, settings):
             try:
                 conn = sqlite3.connect(DB_NAME, timeout=15)
-                conn.execute('INSERT INTO notification_queue (message) VALUES (?)', (msg,))
-                conn.commit()
-                conn.close()
-            except Exception: pass
+                try:
+                    conn.execute('INSERT INTO notification_queue (message) VALUES (?)', (msg,))
+                    conn.commit()
+                finally:
+                    conn.close()
+            except Exception as e:
+                logging.error(f"Failed to append to notification queue: {e}")
             
     # Flush any older notifications if the network is back up
     flush_notification_queue(settings)
@@ -1116,13 +1164,16 @@ if __name__ == "__main__":
             if loop_count >= 360:
                 try:
                     conn = sqlite3.connect(DB_NAME, timeout=15)
-                    conn.execute("DELETE FROM metrics WHERE timestamp <= datetime('now', '-7 days')")
-                    conn.execute("DELETE FROM event_logs WHERE timestamp <= datetime('now', '-30 days')")
-                    conn.execute("DELETE FROM notification_queue WHERE added_at <= datetime('now', '-3 days')")
-                    conn.commit()
-                    conn.execute("PRAGMA incremental_vacuum(16);")
-                    conn.close()
-                except Exception: pass
+                    try:
+                        conn.execute("DELETE FROM metrics WHERE timestamp <= datetime('now', '-7 days')")
+                        conn.execute("DELETE FROM event_logs WHERE timestamp <= datetime('now', '-30 days')")
+                        conn.execute("DELETE FROM notification_queue WHERE added_at <= datetime('now', '-3 days')")
+                        conn.commit()
+                        conn.execute("PRAGMA incremental_vacuum(16);")
+                    finally:
+                        conn.close()
+                except Exception as e:
+                    logging.error(f"Maintenance DB error: {e}")
                 loop_count = 0
 
             sleep_duration = max(0, POLL_INTERVAL - (time.time() - start_time))
@@ -1130,29 +1181,32 @@ if __name__ == "__main__":
             
             # Sub-loop to listen for UI Triggers (Force Poll / Force Report)
             while time.time() < end_sleep:
-                time.sleep(0.5)
+                time.sleep(2.0)
                 try:
                     conn = sqlite3.connect(DB_NAME, timeout=15)
-                    
-                    # 1. Force Poll Interrupt
-                    fp = conn.execute("SELECT value FROM sys_settings WHERE key='force_poll'").fetchone()
-                    if fp and fp[0] == '1':
-                        conn.execute("UPDATE sys_settings SET value='0' WHERE key='force_poll'")
-                        conn.commit()
+                    try:
+                        # 1. Force Poll Interrupt
+                        fp = conn.execute("SELECT value FROM sys_settings WHERE key='force_poll'").fetchone()
+                        if fp and fp[0] == '1':
+                            conn.execute("UPDATE sys_settings SET value='0' WHERE key='force_poll'")
+                            conn.commit()
+                            break 
+                            
+                        # 2. On-Demand Report Dispatch
+                        tr = conn.execute("SELECT value FROM sys_settings WHERE key='trigger_report'").fetchone()
+                        if tr and tr[0] == '1':
+                            conn.execute("UPDATE sys_settings SET value='0' WHERE key='trigger_report'")
+                            conn.commit()
+                            generate_full_report("📊 <b>HackNet On-Demand Status Report</b>")
+                    finally:
                         conn.close()
-                        break 
-                        
-                    # 2. On-Demand Report Dispatch
-                    tr = conn.execute("SELECT value FROM sys_settings WHERE key='trigger_report'").fetchone()
-                    if tr and tr[0] == '1':
-                        conn.execute("UPDATE sys_settings SET value='0' WHERE key='trigger_report'")
-                        conn.commit()
-                        generate_full_report("📊 <b>HackNet On-Demand Status Report</b>")
-                        
-                    conn.close()
-                except Exception: pass
+                except Exception as e:
+                    logging.debug(f"Sub-loop DB error: {e}")
 
-    except KeyboardInterrupt: pass
+    except KeyboardInterrupt:
+        pass
+
+        
 
     
     

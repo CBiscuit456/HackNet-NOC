@@ -1,6 +1,9 @@
 # Use a lightweight python image
 FROM python:3.11-slim
 
+# Force Python stdout/stderr to be unbuffered so Docker logs work in real-time
+ENV PYTHONUNBUFFERED=1
+
 # Install the OS-level 'ping' utility required for network checks
 RUN apt-get update && \
     apt-get install -y iputils-ping && \
@@ -21,4 +24,5 @@ EXPOSE 8000
 
 # Default command (overridden by docker-compose for the collector)
 CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+
 

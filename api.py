@@ -24,6 +24,7 @@ import base64
 import time
 import jwt
 import urllib.parse
+import logging
 from cryptography.fernet import Fernet
 from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, HTTPException, Depends, Header
@@ -36,6 +37,9 @@ from dotenv import load_dotenv
 from proxmoxer import ProxmoxAPI
 import urllib3
 import difflib
+
+# Configure standard logging to prevent silent failures
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Suppress insecure HTTPS warnings for local self-signed homelab APIs
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -62,94 +66,98 @@ os.makedirs(os.path.dirname(DB_NAME) or ".", exist_ok=True)
 @app.on_event("startup")
 def init_db():
     conn = sqlite3.connect(DB_NAME, timeout=15)
-    cursor = conn.cursor()
-    cursor.execute('PRAGMA journal_mode=WAL;')
-    
-    # Core Infrastructure Table
-    cursor.execute('''CREATE TABLE IF NOT EXISTS monitored_targets (
-        uid TEXT PRIMARY KEY,
-        name TEXT, 
-        entity_type TEXT, 
-        target_address TEXT, 
-        port INTEGER, 
-        is_enabled INTEGER DEFAULT 1, 
-        down_since REAL DEFAULT 0.0,
-        cooldown_interval INTEGER DEFAULT 3600,
-        cpu_threshold REAL DEFAULT 90.0,
-        mem_threshold REAL DEFAULT 90.0,
-        location TEXT DEFAULT 'Local',
-        uuid TEXT DEFAULT '',
-        parent_uid TEXT DEFAULT '',
-        stack_group TEXT DEFAULT ''
-    )''')
+    try:
+        cursor = conn.cursor()
+        cursor.execute('PRAGMA journal_mode=WAL;')
+        
+        # Core Infrastructure Table
+        cursor.execute('''CREATE TABLE IF NOT EXISTS monitored_targets (
+            uid TEXT PRIMARY KEY,
+            name TEXT, 
+            entity_type TEXT, 
+            target_address TEXT, 
+            port INTEGER, 
+            is_enabled INTEGER DEFAULT 1, 
+            down_since REAL DEFAULT 0.0,
+            cooldown_interval INTEGER DEFAULT 3600,
+            cpu_threshold REAL DEFAULT 90.0,
+            mem_threshold REAL DEFAULT 90.0,
+            location TEXT DEFAULT 'Local',
+            uuid TEXT DEFAULT '',
+            parent_uid TEXT DEFAULT '',
+            stack_group TEXT DEFAULT ''
+        )''')
 
-    cursor.execute('''CREATE TABLE IF NOT EXISTS sys_settings (key TEXT PRIMARY KEY, value TEXT)''')
-    
-    # Metrics with WAN Jitter/Packet Loss support
-    cursor.execute('''CREATE TABLE IF NOT EXISTS metrics (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, 
-        uid TEXT, 
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, 
-        entity_name TEXT, 
-        entity_type TEXT, 
-        status TEXT, 
-        cpu_usage REAL, 
-        mem_used REAL, 
-        mem_total REAL, 
-        disk_used REAL, 
-        disk_total REAL, 
-        net_in REAL, 
-        net_out REAL, 
-        ping_ms REAL,
-        packet_loss REAL DEFAULT 0.0,
-        jitter_ms REAL DEFAULT 0.0
-    )''')
-    
-    cursor.execute('''CREATE TABLE IF NOT EXISTS latest_metrics (
-        uid TEXT PRIMARY KEY, 
-        entity_name TEXT, 
-        entity_type TEXT, 
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, 
-        status TEXT, 
-        cpu_usage REAL, 
-        mem_used REAL, 
-        mem_total REAL, 
-        disk_used REAL, 
-        disk_total REAL, 
-        net_in REAL, 
-        net_out REAL, 
-        ping_ms REAL,
-        packet_loss REAL DEFAULT 0.0,
-        jitter_ms REAL DEFAULT 0.0
-    )''')
-    
-    # Alerting & Queues
-    cursor.execute('''CREATE TABLE IF NOT EXISTS alert_state (uid TEXT PRIMARY KEY, is_alerting INTEGER, first_alert_time REAL, last_alert_time REAL, count INTEGER)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS event_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, entity_name TEXT, event_type TEXT, message TEXT)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS notification_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, message TEXT, added_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS pihole_stats (id INTEGER PRIMARY KEY, status TEXT, domains_blocked INTEGER, queries_today INTEGER, ads_blocked INTEGER, ads_percentage REAL)''')
-    
-    # Defaults
-    cursor.execute('INSERT OR IGNORE INTO sys_settings (key, value) VALUES ("global_mute", "0")')
-    cursor.execute('INSERT OR IGNORE INTO sys_settings (key, value) VALUES ("force_poll", "0")')
-    cursor.execute('INSERT OR IGNORE INTO sys_settings (key, value) VALUES ("trigger_report", "0")')
-    cursor.execute('INSERT OR IGNORE INTO sys_settings (key, value) VALUES ("is_setup_complete", "0")')
-    
-    # Check for missing columns (Migration safety)
-    cursor.execute("PRAGMA table_info(metrics)")
-    existing_metrics_cols = [info[1] for info in cursor.fetchall()]
-    if 'packet_loss' not in existing_metrics_cols:
-        cursor.execute("ALTER TABLE metrics ADD COLUMN packet_loss REAL DEFAULT 0.0")
-        cursor.execute("ALTER TABLE metrics ADD COLUMN jitter_ms REAL DEFAULT 0.0")
-    
-    cursor.execute("PRAGMA table_info(latest_metrics)")
-    existing_latest_cols = [info[1] for info in cursor.fetchall()]
-    if 'packet_loss' not in existing_latest_cols:
-        cursor.execute("ALTER TABLE latest_metrics ADD COLUMN packet_loss REAL DEFAULT 0.0")
-        cursor.execute("ALTER TABLE latest_metrics ADD COLUMN jitter_ms REAL DEFAULT 0.0")
+        cursor.execute('''CREATE TABLE IF NOT EXISTS sys_settings (key TEXT PRIMARY KEY, value TEXT)''')
+        
+        # Metrics with WAN Jitter/Packet Loss support
+        cursor.execute('''CREATE TABLE IF NOT EXISTS metrics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            uid TEXT, 
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, 
+            entity_name TEXT, 
+            entity_type TEXT, 
+            status TEXT, 
+            cpu_usage REAL, 
+            mem_used REAL, 
+            mem_total REAL, 
+            disk_used REAL, 
+            disk_total REAL, 
+            net_in REAL, 
+            net_out REAL, 
+            ping_ms REAL,
+            packet_loss REAL DEFAULT 0.0,
+            jitter_ms REAL DEFAULT 0.0
+        )''')
+        
+        cursor.execute('''CREATE TABLE IF NOT EXISTS latest_metrics (
+            uid TEXT PRIMARY KEY, 
+            entity_name TEXT, 
+            entity_type TEXT, 
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, 
+            status TEXT, 
+            cpu_usage REAL, 
+            mem_used REAL, 
+            mem_total REAL, 
+            disk_used REAL, 
+            disk_total REAL, 
+            net_in REAL, 
+            net_out REAL, 
+            ping_ms REAL,
+            packet_loss REAL DEFAULT 0.0,
+            jitter_ms REAL DEFAULT 0.0
+        )''')
+        
+        # Alerting & Queues
+        cursor.execute('''CREATE TABLE IF NOT EXISTS alert_state (uid TEXT PRIMARY KEY, is_alerting INTEGER, first_alert_time REAL, last_alert_time REAL, count INTEGER)''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS event_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, entity_name TEXT, event_type TEXT, message TEXT)''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS notification_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, message TEXT, added_at DATETIME DEFAULT CURRENT_TIMESTAMP)''')
+        cursor.execute('''CREATE TABLE IF NOT EXISTS pihole_stats (id INTEGER PRIMARY KEY, status TEXT, domains_blocked INTEGER, queries_today INTEGER, ads_blocked INTEGER, ads_percentage REAL)''')
+        
+        # Defaults
+        cursor.execute('INSERT OR IGNORE INTO sys_settings (key, value) VALUES ("global_mute", "0")')
+        cursor.execute('INSERT OR IGNORE INTO sys_settings (key, value) VALUES ("force_poll", "0")')
+        cursor.execute('INSERT OR IGNORE INTO sys_settings (key, value) VALUES ("trigger_report", "0")')
+        cursor.execute('INSERT OR IGNORE INTO sys_settings (key, value) VALUES ("is_setup_complete", "0")')
+        
+        # Check for missing columns (Migration safety)
+        cursor.execute("PRAGMA table_info(metrics)")
+        existing_metrics_cols = [info[1] for info in cursor.fetchall()]
+        if 'packet_loss' not in existing_metrics_cols:
+            cursor.execute("ALTER TABLE metrics ADD COLUMN packet_loss REAL DEFAULT 0.0")
+            cursor.execute("ALTER TABLE metrics ADD COLUMN jitter_ms REAL DEFAULT 0.0")
+        
+        cursor.execute("PRAGMA table_info(latest_metrics)")
+        existing_latest_cols = [info[1] for info in cursor.fetchall()]
+        if 'packet_loss' not in existing_latest_cols:
+            cursor.execute("ALTER TABLE latest_metrics ADD COLUMN packet_loss REAL DEFAULT 0.0")
+            cursor.execute("ALTER TABLE latest_metrics ADD COLUMN jitter_ms REAL DEFAULT 0.0")
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+    except Exception as e:
+        logging.error(f"Database initialization failed: {e}")
+    finally:
+        conn.close()
 
 # ==========================================
 # HELPER FUNCTIONS
@@ -169,9 +177,14 @@ def ensure_url(url: str, default_port: int = 80) -> str:
 # ==========================================
 def get_sys_setting(key: str) -> str:
     conn = sqlite3.connect(DB_NAME, timeout=15)
-    row = conn.execute("SELECT value FROM sys_settings WHERE key=?", (key,)).fetchone()
-    conn.close()
-    return row[0] if row else None
+    try:
+        row = conn.execute("SELECT value FROM sys_settings WHERE key=?", (key,)).fetchone()
+        return row[0] if row else None
+    except Exception as e:
+        logging.error(f"Failed to fetch sys setting '{key}': {e}")
+        return None
+    finally:
+        conn.close()
 
 def get_fernet_cipher():
     key = get_sys_setting('sys_encryption_key')
@@ -186,7 +199,8 @@ def decrypt_secret(cipher_text: str) -> str:
     if not cipher_text: return ""
     try:
         return get_fernet_cipher().decrypt(cipher_text.encode()).decode()
-    except Exception:
+    except Exception as e:
+        logging.warning(f"Decryption fallback triggered (migration context or invalid key): {e}")
         return cipher_text # Graceful fallback if plain text during migration
 
 def _get_decrypted_plugin_val(plugin_key: str, key_name: str, provided_val: str) -> str:
@@ -194,10 +208,17 @@ def _get_decrypted_plugin_val(plugin_key: str, key_name: str, provided_val: str)
     if provided_val != "********":
         return provided_val
     db_key = f"plugin_{plugin_key}_{key_name}"
+    
     conn = sqlite3.connect(DB_NAME, timeout=15)
-    row = conn.execute("SELECT value FROM sys_settings WHERE key=?", (db_key,)).fetchone()
-    conn.close()
-    db_val = row[0] if row else ""
+    try:
+        row = conn.execute("SELECT value FROM sys_settings WHERE key=?", (db_key,)).fetchone()
+        db_val = row[0] if row else ""
+    except Exception as e:
+        logging.error(f"Failed to fetch plugin value for {plugin_key}: {e}")
+        db_val = ""
+    finally:
+        conn.close()
+        
     if db_val:
         is_secret = any(x in db_key.lower() for x in ['token', 'secret', 'password']) and 'token_id' not in db_key.lower()
         return decrypt_secret(db_val) if is_secret else db_val
@@ -431,36 +452,45 @@ def _perform_discovery(plugins: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], L
 @app.get("/api/setup/status")
 def get_setup_status():
     conn = sqlite3.connect(DB_NAME, timeout=15)
-    has_admin = conn.execute("SELECT value FROM sys_settings WHERE key='admin_hash'").fetchone() is not None
-    is_complete = conn.execute("SELECT value FROM sys_settings WHERE key='is_setup_complete'").fetchone()
-    conn.close()
-    
-    return {
-        "admin_exists": has_admin,
-        "is_setup_complete": bool(int(is_complete[0])) if is_complete else False
-    }
+    try:
+        has_admin = conn.execute("SELECT value FROM sys_settings WHERE key='admin_hash'").fetchone() is not None
+        is_complete = conn.execute("SELECT value FROM sys_settings WHERE key='is_setup_complete'").fetchone()
+        
+        return {
+            "admin_exists": has_admin,
+            "is_setup_complete": bool(int(is_complete[0])) if is_complete else False
+        }
+    except Exception as e:
+        logging.error(f"Failed to fetch setup status: {e}")
+        raise HTTPException(status_code=500, detail="Database access error.")
+    finally:
+        conn.close()
 
 @app.post("/api/setup/init")
 def initialize_admin(payload: InitPayload):
     conn = sqlite3.connect(DB_NAME, timeout=15)
-    if conn.execute("SELECT value FROM sys_settings WHERE key='admin_hash'").fetchone():
+    try:
+        if conn.execute("SELECT value FROM sys_settings WHERE key='admin_hash'").fetchone():
+            raise HTTPException(status_code=400, detail="Admin account already exists.")
+        
+        # Security Initialization
+        salt = os.urandom(32)
+        pwd_hash = hashlib.pbkdf2_hmac('sha256', payload.password.encode('utf-8'), salt, 100000)
+        
+        # Generate System Encryption Key & JWT Secret
+        sys_encryption_key = Fernet.generate_key().decode()
+        jwt_secret = secrets.token_hex(32)
+        
+        conn.execute("INSERT INTO sys_settings (key, value) VALUES ('admin_salt', ?)", (salt.hex(),))
+        conn.execute("INSERT INTO sys_settings (key, value) VALUES ('admin_hash', ?)", (pwd_hash.hex(),))
+        conn.execute("INSERT INTO sys_settings (key, value) VALUES ('sys_encryption_key', ?)", (sys_encryption_key,))
+        conn.execute("INSERT INTO sys_settings (key, value) VALUES ('jwt_secret', ?)", (jwt_secret,))
+        conn.commit()
+    except Exception as e:
+        logging.error(f"Admin initialization failed: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during initialization.")
+    finally:
         conn.close()
-        raise HTTPException(status_code=400, detail="Admin account already exists.")
-    
-    # Security Initialization
-    salt = os.urandom(32)
-    pwd_hash = hashlib.pbkdf2_hmac('sha256', payload.password.encode('utf-8'), salt, 100000)
-    
-    # Generate System Encryption Key & JWT Secret
-    sys_encryption_key = Fernet.generate_key().decode()
-    jwt_secret = secrets.token_hex(32)
-    
-    conn.execute("INSERT INTO sys_settings (key, value) VALUES ('admin_salt', ?)", (salt.hex(),))
-    conn.execute("INSERT INTO sys_settings (key, value) VALUES ('admin_hash', ?)", (pwd_hash.hex(),))
-    conn.execute("INSERT INTO sys_settings (key, value) VALUES ('sys_encryption_key', ?)", (sys_encryption_key,))
-    conn.execute("INSERT INTO sys_settings (key, value) VALUES ('jwt_secret', ?)", (jwt_secret,))
-    conn.commit()
-    conn.close()
     
     # Automatically issue token on init (Expires in 1 Hour)
     token = jwt.encode(
@@ -472,10 +502,15 @@ def initialize_admin(payload: InitPayload):
 @app.post("/api/admin/login")
 def login(payload: LoginPayload):
     conn = sqlite3.connect(DB_NAME, timeout=15)
-    pwd_hash = conn.execute("SELECT value FROM sys_settings WHERE key='admin_hash'").fetchone()
-    pwd_salt = conn.execute("SELECT value FROM sys_settings WHERE key='admin_salt'").fetchone()
-    jwt_secret = conn.execute("SELECT value FROM sys_settings WHERE key='jwt_secret'").fetchone()
-    conn.close()
+    try:
+        pwd_hash = conn.execute("SELECT value FROM sys_settings WHERE key='admin_hash'").fetchone()
+        pwd_salt = conn.execute("SELECT value FROM sys_settings WHERE key='admin_salt'").fetchone()
+        jwt_secret = conn.execute("SELECT value FROM sys_settings WHERE key='jwt_secret'").fetchone()
+    except Exception as e:
+        logging.error(f"Login database error: {e}")
+        raise HTTPException(status_code=500, detail="Database access error during login.")
+    finally:
+        conn.close()
 
     if not pwd_hash or not pwd_salt or not jwt_secret:
         raise HTTPException(status_code=401, detail="System not initialized.")
@@ -600,6 +635,7 @@ def test_connection(payload: TestPayload):
             return {"status": "error", "detail": f"HTTP {res.status_code}"}
 
     except Exception as e:
+        logging.error(f"Plugin connection test failed: {e}")
         return {"status": "error", "detail": f"Connection Failed: {str(e)}"}
     
     return {"status": "error", "detail": "Unknown plugin or validation failed."}
@@ -616,51 +652,54 @@ def run_infrastructure_discovery(payload: DiscoverPayload):
     }
 
 @app.post("/api/setup/finalize", dependencies=[Depends(verify_admin)])
-async def finalize_setup(payload: SetupPayload):
+def finalize_setup(payload: SetupPayload):
     conn = sqlite3.connect(DB_NAME, timeout=15)
-    
-    wan_uid = "mnl_wan_primary"
-    conn.execute("DELETE FROM monitored_targets WHERE uid=?", (wan_uid,))
-    conn.execute('''INSERT INTO monitored_targets 
-                    (uid, name, entity_type, target_address, is_enabled, cooldown_interval, location) 
-                    VALUES (?, ?, 'network', ?, 1, 600, 'WAN')''', 
-                 (wan_uid, payload.wan_name or "WAN Gateway", payload.wan_target))
+    try:
+        wan_uid = "mnl_wan_primary"
+        conn.execute("DELETE FROM monitored_targets WHERE uid=?", (wan_uid,))
+        conn.execute('''INSERT INTO monitored_targets 
+                        (uid, name, entity_type, target_address, is_enabled, cooldown_interval, location) 
+                        VALUES (?, ?, 'network', ?, 1, 600, 'WAN')''', 
+                     (wan_uid, payload.wan_name or "WAN Gateway", payload.wan_target))
 
-    conn.execute("INSERT OR REPLACE INTO sys_settings (key, value) VALUES ('hud_priorities', ?)", (",".join(payload.hud_priorities),))
+        conn.execute("INSERT OR REPLACE INTO sys_settings (key, value) VALUES ('hud_priorities', ?)", (",".join(payload.hud_priorities),))
 
-    # Strict save logic. Ignore 'token_id', only encrypt actual secrets.
-    for k, v in payload.plugins.items():
-        if v and v != "********": 
-            is_secret = any(x in k.lower() for x in ['secret', 'password', 'token']) and 'token_id' not in k.lower()
-            final_val = encrypt_secret(str(v)) if is_secret else str(v)
-            conn.execute("INSERT OR REPLACE INTO sys_settings (key, value) VALUES (?, ?)", (f"plugin_{k}", final_val))
-            
-    for k, v in payload.notifications.items():
-        if v and v != "********": 
-            is_secret = any(x in k.lower() for x in ['secret', 'password', 'token', 'webhook'])
-            final_val = encrypt_secret(str(v)) if is_secret else str(v)
-            conn.execute("INSERT OR REPLACE INTO sys_settings (key, value) VALUES (?, ?)", (f"notify_{k}", final_val))
-            
-    for key_row in conn.execute("SELECT key FROM sys_settings WHERE key LIKE 'plugin_%' OR key LIKE 'notify_%'").fetchall():
-        key = key_row[0]
-        base_k = key.replace('plugin_', '').replace('notify_', '')
-        if key.startswith('plugin_') and base_k not in payload.plugins:
-            conn.execute("DELETE FROM sys_settings WHERE key=?", (key,))
-        elif key.startswith('notify_') and base_k not in payload.notifications:
-            conn.execute("DELETE FROM sys_settings WHERE key=?", (key,))
+        # Strict save logic. Ignore 'token_id', only encrypt actual secrets.
+        for k, v in payload.plugins.items():
+            if v and v != "********": 
+                is_secret = any(x in k.lower() for x in ['secret', 'password', 'token']) and 'token_id' not in k.lower()
+                final_val = encrypt_secret(str(v)) if is_secret else str(v)
+                conn.execute("INSERT OR REPLACE INTO sys_settings (key, value) VALUES (?, ?)", (f"plugin_{k}", final_val))
+                
+        for k, v in payload.notifications.items():
+            if v and v != "********": 
+                is_secret = any(x in k.lower() for x in ['secret', 'password', 'token', 'webhook'])
+                final_val = encrypt_secret(str(v)) if is_secret else str(v)
+                conn.execute("INSERT OR REPLACE INTO sys_settings (key, value) VALUES (?, ?)", (f"notify_{k}", final_val))
+                
+        for key_row in conn.execute("SELECT key FROM sys_settings WHERE key LIKE 'plugin_%' OR key LIKE 'notify_%'").fetchall():
+            key = key_row[0]
+            base_k = key.replace('plugin_', '').replace('notify_', '')
+            if key.startswith('plugin_') and base_k not in payload.plugins:
+                conn.execute("DELETE FROM sys_settings WHERE key=?", (key,))
+            elif key.startswith('notify_') and base_k not in payload.notifications:
+                conn.execute("DELETE FROM sys_settings WHERE key=?", (key,))
 
-    for target in payload.discovered_targets:
-        conn.execute('''INSERT OR REPLACE INTO monitored_targets 
-                        (uid, name, entity_type, is_enabled, location, parent_uid, stack_group) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?)''', 
-                     (target['uid'], target['name'], target['type'], 
-                      target.get('is_enabled', 1), target.get('location', 'Local'), 
-                      target.get('parent_uid', ''), target.get('stack_group', '')))
-    
-    conn.execute("INSERT OR REPLACE INTO sys_settings (key, value) VALUES ('is_setup_complete', '1')")
-    
-    conn.commit()
-    conn.close()
+        for target in payload.discovered_targets:
+            conn.execute('''INSERT OR REPLACE INTO monitored_targets 
+                            (uid, name, entity_type, is_enabled, location, parent_uid, stack_group) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?)''', 
+                         (target['uid'], target['name'], target['type'], 
+                          target.get('is_enabled', 1), target.get('location', 'Local'), 
+                          target.get('parent_uid', ''), target.get('stack_group', '')))
+        
+        conn.execute("INSERT OR REPLACE INTO sys_settings (key, value) VALUES ('is_setup_complete', '1')")
+        conn.commit()
+    except Exception as e:
+        logging.error(f"Failed to finalize setup: {e}")
+        raise HTTPException(status_code=500, detail="Database error during finalization.")
+    finally:
+        conn.close()
     return {"status": "success"}
 
 # ==========================================
@@ -674,49 +713,54 @@ def live_data(authorization: str = Header(None)):
         
         conn = sqlite3.connect(DB_NAME, timeout=15)
         conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        
-        is_setup = cursor.execute('SELECT value FROM sys_settings WHERE key="is_setup_complete"').fetchone()
-        if not is_setup or is_setup['value'] == '0':
-            return {"status": "success", "is_setup_complete": False}
-
-        cursor.execute('''
-            SELECT t.uid, t.name AS entity_name, t.entity_type, t.is_enabled, t.down_since, t.target_address, t.port, 
-                   t.cooldown_interval, t.cpu_threshold, t.mem_threshold, t.location, t.parent_uid, t.stack_group,
-                   m.status, m.cpu_usage, m.mem_used, m.mem_total, m.disk_used, m.disk_total, m.ping_ms, m.packet_loss, m.jitter_ms, m.net_in, m.net_out
-            FROM monitored_targets t
-            LEFT JOIN latest_metrics m ON m.uid = t.uid
-            ORDER BY CASE t.entity_type WHEN 'network' THEN 1 WHEN 'host' THEN 2 WHEN 'storage' THEN 3 WHEN 'lxc' THEN 4 WHEN 'vm' THEN 5 WHEN 'app' THEN 6 WHEN 'http' THEN 7 WHEN 'game' THEN 8 ELSE 9 END, LOWER(t.name) ASC
-        ''')
-        targets = [dict(r) for r in cursor.fetchall()]
-
-        safe_keys = ['global_mute', 'hud_priorities', 'is_setup_complete', 'host_uptime']
-        placeholders = ','.join(['?'] * len(safe_keys))
-        cursor.execute(f'SELECT key, value FROM sys_settings WHERE key IN ({placeholders})', safe_keys)
-        settings = {r['key']: r['value'] for r in cursor.fetchall()}
-
-        pihole = {}
         try:
-            r = cursor.execute('SELECT * FROM pihole_stats LIMIT 1').fetchone()
-            if r: pihole = dict(r)
-        except Exception: pass
+            cursor = conn.cursor()
+            
+            is_setup = cursor.execute('SELECT value FROM sys_settings WHERE key="is_setup_complete"').fetchone()
+            if not is_setup or is_setup['value'] == '0':
+                return {"status": "success", "is_setup_complete": False}
 
-        sparklines = {}
-        try:
-            cursor.execute('''SELECT uid, ping_ms, cpu_usage FROM metrics WHERE timestamp >= datetime('now', '-10 minutes') ORDER BY timestamp ASC''')
-            for r in cursor.fetchall():
-                key = r['uid']
-                if key not in sparklines: sparklines[key] = {'ping': [], 'cpu': []}
-                sparklines[key]['ping'].append(r['ping_ms'] or 0)
-                sparklines[key]['cpu'].append(r['cpu_usage'] or 0)
-            for k in sparklines:
-                sparklines[k]['ping'] = sparklines[k]['ping'][-60:]
-                sparklines[k]['cpu'] = sparklines[k]['cpu'][-60:]
-        except Exception: pass
-        
-        wan_history = sparklines.get("mnl_wan_primary", {}).get('ping', [])
+            cursor.execute('''
+                SELECT t.uid, t.name AS entity_name, t.entity_type, t.is_enabled, t.down_since, t.target_address, t.port, 
+                       t.cooldown_interval, t.cpu_threshold, t.mem_threshold, t.location, t.parent_uid, t.stack_group,
+                       m.status, m.cpu_usage, m.mem_used, m.mem_total, m.disk_used, m.disk_total, m.ping_ms, m.packet_loss, m.jitter_ms, m.net_in, m.net_out
+                FROM monitored_targets t
+                LEFT JOIN latest_metrics m ON m.uid = t.uid
+                ORDER BY CASE t.entity_type WHEN 'network' THEN 1 WHEN 'host' THEN 2 WHEN 'storage' THEN 3 WHEN 'lxc' THEN 4 WHEN 'vm' THEN 5 WHEN 'app' THEN 6 WHEN 'http' THEN 7 WHEN 'game' THEN 8 ELSE 9 END, LOWER(t.name) ASC
+            ''')
+            targets = [dict(r) for r in cursor.fetchall()]
 
-        conn.close()
+            safe_keys = ['global_mute', 'hud_priorities', 'is_setup_complete', 'host_uptime']
+            placeholders = ','.join(['?'] * len(safe_keys))
+            cursor.execute(f'SELECT key, value FROM sys_settings WHERE key IN ({placeholders})', safe_keys)
+            settings = {r['key']: r['value'] for r in cursor.fetchall()}
+
+            pihole = {}
+            try:
+                r = cursor.execute('SELECT * FROM pihole_stats LIMIT 1').fetchone()
+                if r: pihole = dict(r)
+            except Exception as e:
+                logging.warning(f"Could not load pihole stats for live feed: {e}")
+
+            sparklines = {}
+            try:
+                cursor.execute('''SELECT uid, ping_ms, cpu_usage FROM metrics WHERE timestamp >= datetime('now', '-10 minutes') ORDER BY timestamp ASC''')
+                for r in cursor.fetchall():
+                    key = r['uid']
+                    if key not in sparklines: sparklines[key] = {'ping': [], 'cpu': []}
+                    sparklines[key]['ping'].append(r['ping_ms'] or 0)
+                    sparklines[key]['cpu'].append(r['cpu_usage'] or 0)
+                for k in sparklines:
+                    sparklines[k]['ping'] = sparklines[k]['ping'][-60:]
+                    sparklines[k]['cpu'] = sparklines[k]['cpu'][-60:]
+            except Exception as e:
+                logging.warning(f"Could not load sparkline data: {e}")
+            
+            wan_history = sparklines.get("mnl_wan_primary", {}).get('ping', [])
+
+        finally:
+            conn.close()
+
         return {
             "status": "success", 
             "is_setup_complete": True,
@@ -729,7 +773,8 @@ def live_data(authorization: str = Header(None)):
     except HTTPException as e:
         return JSONResponse(status_code=e.status_code, content={"status": "error", "detail": e.detail})
     except Exception as e:
-        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+        logging.error(f"Live data fetch error: {e}")
+        return JSONResponse(status_code=500, content={"status": "error", "message": "Internal Server Error"})
 
 # ==========================================
 # SECURE ADMIN ENDPOINTS
@@ -738,8 +783,13 @@ def live_data(authorization: str = Header(None)):
 def get_integrations():
     conn = sqlite3.connect(DB_NAME, timeout=15)
     conn.row_factory = sqlite3.Row
-    config = {r['key']: r['value'] for r in conn.execute('SELECT key, value FROM sys_settings').fetchall()}
-    conn.close()
+    try:
+        config = {r['key']: r['value'] for r in conn.execute('SELECT key, value FROM sys_settings').fetchall()}
+    except Exception as e:
+        logging.error(f"Failed to fetch integrations config: {e}")
+        config = {}
+    finally:
+        conn.close()
     
     safe_data = {}
     for k in config.keys():
@@ -759,133 +809,174 @@ def get_audit_logs():
     conn.row_factory = sqlite3.Row
     try:
         logs = [dict(r) for r in conn.execute('SELECT timestamp, entity_name, event_type, message FROM event_logs ORDER BY timestamp DESC LIMIT 50').fetchall()]
-    except Exception:
+    except Exception as e:
+        logging.error(f"Failed to fetch audit logs: {e}")
         logs = []
     finally:
         conn.close()
     return {"status": "success", "data": logs}
 
 @app.post("/api/admin/targets", dependencies=[Depends(verify_admin)])
-async def add_admin_target(payload: TargetCreate):
+def add_admin_target(payload: TargetCreate):
     new_uid = f"mnl_{uuid.uuid4().hex[:12]}"
     conn = sqlite3.connect(DB_NAME, timeout=15)
-    conn.execute('''INSERT INTO monitored_targets 
-                    (uid, name, entity_type, target_address, port, is_enabled, down_since, cooldown_interval, location, parent_uid) 
-                    VALUES (?, ?, ?, ?, ?, 1, 0.0, ?, ?, ?)''', 
-                 (new_uid, payload.name, payload.entity_type, payload.target_address, payload.port, 
-                  payload.cooldown_interval, payload.location, payload.parent_uid))
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute('''INSERT INTO monitored_targets 
+                        (uid, name, entity_type, target_address, port, is_enabled, down_since, cooldown_interval, location, parent_uid) 
+                        VALUES (?, ?, ?, ?, ?, 1, 0.0, ?, ?, ?)''', 
+                     (new_uid, payload.name, payload.entity_type, payload.target_address, payload.port, 
+                      payload.cooldown_interval, payload.location, payload.parent_uid))
+        conn.commit()
+    except Exception as e:
+        logging.error(f"Failed to add target: {e}")
+        raise HTTPException(status_code=500, detail="Database error adding target.")
+    finally:
+        conn.close()
     return {"status": "success"}
 
 @app.put("/api/admin/targets", dependencies=[Depends(verify_admin)])
-async def edit_admin_target(payload: TargetUpdate):
+def edit_admin_target(payload: TargetUpdate):
     conn = sqlite3.connect(DB_NAME, timeout=15)
-    conn.execute('''UPDATE monitored_targets 
-                    SET name=?, target_address=?, port=?, cooldown_interval=?, cpu_threshold=?, mem_threshold=?, location=?, parent_uid=?, stack_group=?
-                    WHERE uid=?''', 
-                 (payload.name, payload.target_address, payload.port, payload.cooldown_interval, 
-                  payload.cpu_threshold, payload.mem_threshold, payload.location, payload.parent_uid, payload.stack_group, payload.uid))
-    conn.execute('UPDATE latest_metrics SET entity_name=? WHERE uid=?', (payload.name, payload.uid))
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute('''UPDATE monitored_targets 
+                        SET name=?, target_address=?, port=?, cooldown_interval=?, cpu_threshold=?, mem_threshold=?, location=?, parent_uid=?, stack_group=?
+                        WHERE uid=?''', 
+                     (payload.name, payload.target_address, payload.port, payload.cooldown_interval, 
+                      payload.cpu_threshold, payload.mem_threshold, payload.location, payload.parent_uid, payload.stack_group, payload.uid))
+        conn.execute('UPDATE latest_metrics SET entity_name=? WHERE uid=?', (payload.name, payload.uid))
+        conn.commit()
+    except Exception as e:
+        logging.error(f"Failed to edit target: {e}")
+        raise HTTPException(status_code=500, detail="Database error editing target.")
+    finally:
+        conn.close()
     return {"status": "success"}
 
 @app.delete("/api/admin/targets", dependencies=[Depends(verify_admin)])
-async def delete_admin_target(payload: TargetAction):
+def delete_admin_target(payload: TargetAction):
     conn = sqlite3.connect(DB_NAME, timeout=15)
-    conn.execute('DELETE FROM monitored_targets WHERE uid = ?', (payload.uid,))
-    conn.execute('DELETE FROM metrics WHERE uid = ?', (payload.uid,))
-    conn.execute('DELETE FROM latest_metrics WHERE uid = ?', (payload.uid,))
-    conn.execute('DELETE FROM alert_state WHERE uid = ?', (payload.uid,))
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute('DELETE FROM monitored_targets WHERE uid = ?', (payload.uid,))
+        conn.execute('DELETE FROM metrics WHERE uid = ?', (payload.uid,))
+        conn.execute('DELETE FROM latest_metrics WHERE uid = ?', (payload.uid,))
+        conn.execute('DELETE FROM alert_state WHERE uid = ?', (payload.uid,))
+        conn.commit()
+    except Exception as e:
+        logging.error(f"Failed to delete target: {e}")
+        raise HTTPException(status_code=500, detail="Database error deleting target.")
+    finally:
+        conn.close()
     return {"status": "success"}
 
 @app.post("/api/admin/toggle", dependencies=[Depends(verify_admin)])
-async def toggle_target(payload: TargetAction):
+def toggle_target(payload: TargetAction):
     conn = sqlite3.connect(DB_NAME, timeout=15)
-    row = conn.execute('SELECT is_enabled FROM monitored_targets WHERE uid = ?', (payload.uid,)).fetchone()
-    if row:
-        new_state = 0 if row[0] == 1 else 1
-        conn.execute('UPDATE monitored_targets SET is_enabled = ?, down_since = 0.0 WHERE uid = ?', (new_state, payload.uid))
-        conn.commit()
+    try:
+        row = conn.execute('SELECT is_enabled FROM monitored_targets WHERE uid = ?', (payload.uid,)).fetchone()
+        if row:
+            new_state = 0 if row[0] == 1 else 1
+            conn.execute('UPDATE monitored_targets SET is_enabled = ?, down_since = 0.0 WHERE uid = ?', (new_state, payload.uid))
+            conn.commit()
+            return {"status": "success", "new_state": new_state}
+    except Exception as e:
+        logging.error(f"Failed to toggle target state: {e}")
+        raise HTTPException(status_code=500, detail="Database error toggling target.")
+    finally:
         conn.close()
-        return {"status": "success", "new_state": new_state}
-    conn.close()
+        
     raise HTTPException(status_code=404, detail="Target not found")
 
 @app.post("/api/admin/force-poll", dependencies=[Depends(verify_admin)])
-async def force_poll():
+def force_poll():
     conn = sqlite3.connect(DB_NAME, timeout=15)
-    conn.execute("UPDATE sys_settings SET value='1' WHERE key='force_poll'")
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute("UPDATE sys_settings SET value='1' WHERE key='force_poll'")
+        conn.commit()
+    except Exception as e:
+        logging.error(f"Failed to set force_poll: {e}")
+        raise HTTPException(status_code=500, detail="Database error asserting poll flag.")
+    finally:
+        conn.close()
     return {"status": "success"}
 
 @app.post("/api/admin/trigger-report", dependencies=[Depends(verify_admin)])
-async def trigger_report():
+def trigger_report():
     conn = sqlite3.connect(DB_NAME, timeout=15)
-    conn.execute("INSERT OR REPLACE INTO sys_settings (key, value) VALUES ('trigger_report', '1')")
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute("INSERT OR REPLACE INTO sys_settings (key, value) VALUES ('trigger_report', '1')")
+        conn.commit()
+    except Exception as e:
+        logging.error(f"Failed to trigger report: {e}")
+        raise HTTPException(status_code=500, detail="Database error triggering report.")
+    finally:
+        conn.close()
     return {"status": "success"}
 
 @app.post("/api/admin/sys-settings", dependencies=[Depends(verify_admin)])
-async def update_sys_settings(payload: SysSettingsUpdate):
+def update_sys_settings(payload: SysSettingsUpdate):
     conn = sqlite3.connect(DB_NAME, timeout=15)
-    if payload.global_mute is not None:
-        conn.execute("INSERT OR REPLACE INTO sys_settings (key, value) VALUES ('global_mute', ?)", (str(payload.global_mute),))
-    conn.commit()
-    conn.close()
+    try:
+        if payload.global_mute is not None:
+            conn.execute("INSERT OR REPLACE INTO sys_settings (key, value) VALUES ('global_mute', ?)", (str(payload.global_mute),))
+        conn.commit()
+    except Exception as e:
+        logging.error(f"Failed to update sys settings: {e}")
+        raise HTTPException(status_code=500, detail="Database error updating settings.")
+    finally:
+        conn.close()
     return {"status": "success"}
 
 @app.post("/api/admin/scan-devices", dependencies=[Depends(verify_admin)])
 def admin_scan_devices():
     conn = sqlite3.connect(DB_NAME, timeout=15)
-    conn.row_factory = sqlite3.Row
-    config = {r['key']: r['value'] for r in conn.execute('SELECT key, value FROM sys_settings WHERE key LIKE "plugin_%"').fetchall()}
-    
-    def _d(key):
-        val = config.get(key, "")
-        is_secret = any(x in key.lower() for x in ['secret', 'password', 'token']) and 'token_id' not in key.lower()
-        return decrypt_secret(val) if is_secret and val else val
+    try:
+        conn.row_factory = sqlite3.Row
+        config = {r['key']: r['value'] for r in conn.execute('SELECT key, value FROM sys_settings WHERE key LIKE "plugin_%"').fetchall()}
         
-    plugins = {
-        "proxmox": {"ip": _d("plugin_proxmox_ip"), "token_id": _d("plugin_proxmox_token_id"), "token_secret": _d("plugin_proxmox_token_secret")},
-        "portainer": {"url": _d("plugin_portainer_url"), "token": _d("plugin_portainer_token")},
-        "jellyfin": {"url": _d("plugin_jellyfin_url"), "token": _d("plugin_jellyfin_token")},
-        "plex": {"url": _d("plugin_plex_url"), "token": _d("plugin_plex_token")},
-        "synology": {"ip": _d("plugin_synology_ip"), "user": _d("plugin_synology_user"), "password": _d("plugin_synology_password")},
-        "qnap": {"ip": _d("plugin_qnap_ip"), "user": _d("plugin_qnap_user"), "password": _d("plugin_qnap_password")},
-        "esxi": {"ip": _d("plugin_esxi_ip"), "user": _d("plugin_esxi_user"), "password": _d("plugin_esxi_password")},
-        "truenas": {"ip": _d("plugin_truenas_ip"), "token": _d("plugin_truenas_token")},
-        "pterodactyl": {"url": _d("plugin_pterodactyl_url"), "token": _d("plugin_pterodactyl_token")},
-        "pihole": {"ip": _d("plugin_pihole_ip"), "app_password": _d("plugin_pihole_app_password")}
-    }
-    
-    discovered, proposed_stacks, errors = _perform_discovery(plugins)
-    
-    existing_uids = set(r['uid'] for r in conn.execute("SELECT uid FROM monitored_targets").fetchall())
-    new_targets = [d for d in discovered if d['uid'] not in existing_uids]
-    
-    added_count = 0
-    for t in new_targets:
-        parent_uid = ""
-        stack_group = ""
-        for stack in proposed_stacks:
-            if stack['child']['uid'] == t['uid']:
-                parent_uid = stack['parent']['uid']
-                stack_group = stack['parent']['name']
+        def _d(key):
+            val = config.get(key, "")
+            is_secret = any(x in key.lower() for x in ['secret', 'password', 'token']) and 'token_id' not in key.lower()
+            return decrypt_secret(val) if is_secret and val else val
+            
+        plugins = {
+            "proxmox": {"ip": _d("plugin_proxmox_ip"), "token_id": _d("plugin_proxmox_token_id"), "token_secret": _d("plugin_proxmox_token_secret")},
+            "portainer": {"url": _d("plugin_portainer_url"), "token": _d("plugin_portainer_token")},
+            "jellyfin": {"url": _d("plugin_jellyfin_url"), "token": _d("plugin_jellyfin_token")},
+            "plex": {"url": _d("plugin_plex_url"), "token": _d("plugin_plex_token")},
+            "synology": {"ip": _d("plugin_synology_ip"), "user": _d("plugin_synology_user"), "password": _d("plugin_synology_password")},
+            "qnap": {"ip": _d("plugin_qnap_ip"), "user": _d("plugin_qnap_user"), "password": _d("plugin_qnap_password")},
+            "esxi": {"ip": _d("plugin_esxi_ip"), "user": _d("plugin_esxi_user"), "password": _d("plugin_esxi_password")},
+            "truenas": {"ip": _d("plugin_truenas_ip"), "token": _d("plugin_truenas_token")},
+            "pterodactyl": {"url": _d("plugin_pterodactyl_url"), "token": _d("plugin_pterodactyl_token")},
+            "pihole": {"ip": _d("plugin_pihole_ip"), "app_password": _d("plugin_pihole_app_password")}
+        }
         
-        conn.execute('''INSERT INTO monitored_targets 
-                        (uid, name, entity_type, is_enabled, location, parent_uid, stack_group) 
-                        VALUES (?, ?, ?, 1, 'Local', ?, ?)''', 
-                     (t['uid'], t['name'], t['type'], parent_uid, stack_group))
-        added_count += 1
+        discovered, proposed_stacks, errors = _perform_discovery(plugins)
         
-    conn.commit()
-    conn.close()
+        existing_uids = set(r['uid'] for r in conn.execute("SELECT uid FROM monitored_targets").fetchall())
+        new_targets = [d for d in discovered if d['uid'] not in existing_uids]
+        
+        added_count = 0
+        for t in new_targets:
+            parent_uid = ""
+            stack_group = ""
+            for stack in proposed_stacks:
+                if stack['child']['uid'] == t['uid']:
+                    parent_uid = stack['parent']['uid']
+                    stack_group = stack['parent']['name']
+            
+            conn.execute('''INSERT INTO monitored_targets 
+                            (uid, name, entity_type, is_enabled, location, parent_uid, stack_group) 
+                            VALUES (?, ?, ?, 1, 'Local', ?, ?)''', 
+                         (t['uid'], t['name'], t['type'], parent_uid, stack_group))
+            added_count += 1
+            
+        conn.commit()
+    except Exception as e:
+        logging.error(f"Admin scan devices failed: {e}")
+        raise HTTPException(status_code=500, detail="Database/Scan execution failed.")
+    finally:
+        conn.close()
     
     return {"status": "success", "added_count": added_count, "errors": errors}
 
@@ -906,6 +997,7 @@ def serve_setup():
 def serve_admin(): 
     return FileResponse("static/admin.html")
 
+    
     
 
     

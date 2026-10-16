@@ -98,7 +98,9 @@ function adminApp() {
                     } else if (res.status === 401) {
                         this.lockConsole();
                     }
-                } catch(e) {}
+                } catch(e) {
+                    console.warn("Network offline during auth check.");
+                }
             }
             this.isLoading = false;
         },
@@ -123,7 +125,7 @@ function adminApp() {
                     this.isLoading = false;
                 }
             } catch (e) { 
-                alert("Connection failed."); 
+                alert("Connection failed. Backend is offline."); 
                 this.isLoading = false;
             }
         },
@@ -137,32 +139,47 @@ function adminApp() {
         
         finalizeLoad() {
             const minLoadTime = new Promise(resolve => setTimeout(resolve, 1000));
-            const fetch1 = this.fetchData();
-            const fetch2 = this.fetchLogs();
-            const fetch3 = this.loadIntegrations();
             
-            Promise.all([minLoadTime, fetch1, fetch2, fetch3]).then(() => {
-                this.isLoading = false;
-            });
+            // Appending individual catches guarantees Promise.all doesn't short-circuit destructively
+            const fetch1 = this.fetchData().catch(e => console.warn(e));
+            const fetch2 = this.fetchLogs().catch(e => console.warn(e));
+            const fetch3 = this.loadIntegrations().catch(e => console.warn(e));
+            
+            Promise.all([minLoadTime, fetch1, fetch2, fetch3])
+                .then(() => {
+                    this.isLoading = false;
+                })
+                .catch(() => {
+                    // Failsafe exit to drop the loading screen if any critical promise rejects
+                    this.isLoading = false;
+                });
         },
         
         async fetchData() {
-            const res = await fetch('/api/live', { headers: { 'Authorization': `Bearer ${this.jwtToken}` } });
-            if (res.status === 401) { this.lockConsole(); return; }
-            const json = await res.json();
-            if (json.status === 'success') {
-                this.targets = json.data;
-                this.settings = json.settings || { global_mute: '0', hud_priorities: '' };
-                this.hudPriorities = this.settings.hud_priorities ? this.settings.hud_priorities.split(',') : [];
+            try {
+                const res = await fetch('/api/live', { headers: { 'Authorization': `Bearer ${this.jwtToken}` } });
+                if (res.status === 401) { this.lockConsole(); return; }
+                const json = await res.json();
+                if (json.status === 'success') {
+                    this.targets = json.data;
+                    this.settings = json.settings || { global_mute: '0', hud_priorities: '' };
+                    this.hudPriorities = this.settings.hud_priorities ? this.settings.hud_priorities.split(',') : [];
+                }
+            } catch (e) {
+                console.warn("Failed to fetch live data (Network offline).");
             }
         },
         
         async fetchLogs() {
             if (!this.isAuthenticated) return;
-            const res = await fetch('/api/admin/events', { headers: { 'Authorization': `Bearer ${this.jwtToken}` }});
-            if (res.status === 401) { this.lockConsole(); return; }
-            const json = await res.json();
-            if (json.status === 'success') this.logs = json.data;
+            try {
+                const res = await fetch('/api/admin/events', { headers: { 'Authorization': `Bearer ${this.jwtToken}` }});
+                if (res.status === 401) { this.lockConsole(); return; }
+                const json = await res.json();
+                if (json.status === 'success') this.logs = json.data;
+            } catch (e) {
+                console.warn("Failed to fetch logs (Network offline).");
+            }
         },
         
         async loadIntegrations() {
@@ -173,25 +190,35 @@ function adminApp() {
                 if (json.status === 'success') {
                     this.integrations = json.data;
                 }
-            } catch(e) { alert("Failed to fetch configurations."); }
+            } catch(e) { 
+                alert("Failed to fetch configurations. Backend offline."); 
+            }
         },
         
         async _api(endpoint, payload, method='POST') {
-            const res = await fetch(endpoint, {
-                method: method,
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.jwtToken}` },
-                body: JSON.stringify(payload)
-            });
-            if (res.status === 401) {
-                this.lockConsole();
+            try {
+                const res = await fetch(endpoint, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.jwtToken}` },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.status === 401) {
+                    this.lockConsole();
+                    return false;
+                }
+                
+                if (!res.ok) {
+                    // Handle edge cases where the server drops a 502/504 HTML page instead of JSON
+                    const json = await res.json().catch(() => ({ detail: `HTTP Error ${res.status}` }));
+                    alert("System Error: " + (json.detail || "Request Failed"));
+                    return false;
+                }
+                return true;
+            } catch (e) {
+                alert("Network Error: Could not connect to API.");
                 return false;
             }
-            if (!res.ok) {
-                const json = await res.json();
-                alert("System Error: " + (json.detail || "Request Failed"));
-                return false;
-            }
-            return true;
         },
         
         togglePriority(id) {
@@ -271,6 +298,9 @@ function adminApp() {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${this.jwtToken}` }
                 });
+                
+                if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+                
                 const data = await res.json();
                 if (data.status === 'success') {
                     let msg = `Topology Scan Complete.\nAdded ${data.added_count} new sensors.`;
@@ -283,7 +313,7 @@ function adminApp() {
                     alert("Scan failed: " + data.detail);
                 }
             } catch (e) {
-                alert("Network error occurred during scan.");
+                alert("Network error occurred during scan or invalid response received.");
             }
             this.isScanning = false;
         },
@@ -360,4 +390,6 @@ function adminApp() {
         }
     }
 }
+
+
 
