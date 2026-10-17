@@ -598,7 +598,6 @@ class ESXiPlugin(BasePlugin):
 
                     if self.ctx.cfg.get(v_uid, {}).get('enabled', 1) != 0:
                         status = 'running' if vm.get('power_state') == 'POWERED_ON' else 'stopped'
-                        # Patch ESXi "Zero Metrics" hole by capturing max memory
                         v_mt = (vm.get('memory_size_MiB') or 1024) / 1024.0
                         self.ctx.metrics_batch.append((v_uid, vm_name, 'vm', status, 0.0, 0.0, v_mt, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
                     else:
@@ -980,9 +979,10 @@ def collect_and_store():
     downtime_updates = []
     now = time.time()
     
-    with ThreadPoolExecutor(max_workers=40) as executor:
-        ctx = PluginContext(settings, cfg, executor, enc_key)
+    executor = ThreadPoolExecutor(max_workers=40)
+    ctx = PluginContext(settings, cfg, executor, enc_key)
 
+    try:
         plugins = [
             PiholePlugin(ctx),
             PlexPlugin(ctx),
@@ -998,15 +998,22 @@ def collect_and_store():
         ]
         for p in plugins: p.run()
 
-        for future in as_completed(ctx.futures, timeout=15):
-            try:
-                res = future.result()
-                if res: ctx.metrics_batch.append(res)
-            except Exception as e:
-                logging.warning(f"Future thread timeout or execution error: {e}")
+        try:
+            for future in as_completed(ctx.futures, timeout=15):
+                try:
+                    res = future.result()
+                    if res: ctx.metrics_batch.append(res)
+                except Exception as e:
+                    logging.warning(f"Future thread execution error: {e}")
+        except TimeoutError:
+            logging.warning("Manual monitors timed out after 15 seconds. Bypassing stuck threads to trigger alerts.")
+        except Exception as e:
+            logging.warning(f"Unexpected error during future completion loop: {e}")
             
+        # Guarantee any target that failed to respond or got timed out is marked OFFLINE instead of ghosting
+        processed_uids = {m[0] for m in ctx.metrics_batch}
         for uid, data in cfg.items():
-            if data['type'] in ['game', 'host', 'vm', 'lxc', 'storage', 'app'] and data['enabled'] != 0 and uid not in ctx.seen_uids:
+            if data['enabled'] != 0 and uid not in processed_uids:
                 ctx.metrics_batch.append((uid, data['name'], data['type'], 'stopped', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
 
         current_status = {m[0]: m[3] for m in ctx.metrics_batch}
@@ -1026,7 +1033,13 @@ def collect_and_store():
 
         for m in ctx.metrics_batch:
             uid, name, e_type, status = m[0], m[1], m[2], m[3]
-            if status == 'paused': continue
+            
+            # Memory cleanup for paused sensors
+            if status == 'paused':
+                keys_to_delete = [k for k in ALERT_STATE if k.startswith(f"{uid}_")]
+                for k in keys_to_delete:
+                    del ALERT_STATE[k]
+                continue
             
             db_down = cfg.get(uid, {}).get('down_since', 0.0)
             cldn = cfg.get(uid, {}).get('cooldown', 3600)
@@ -1127,6 +1140,10 @@ def collect_and_store():
         except Exception as e:
             logging.error(f"Database Write Error: {e}")
 
+    finally:
+        # Guarantee threadpool closes properly even if the network permanently hangs
+        executor.shutdown(wait=False)
+
     # 6. Push Notifications out of DB lock
     for msg in notification_queue:
         if not send_notification_sync(msg, settings):
@@ -1205,6 +1222,9 @@ if __name__ == "__main__":
 
     except KeyboardInterrupt:
         pass
+
+        
+
 
         
 

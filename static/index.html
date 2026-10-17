@@ -487,13 +487,18 @@
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-6">
                         <template x-for="t in filteredTargets" :key="t.uid">
-                            <div class="card-nominal rounded-xl p-4 md:p-6 flex flex-col justify-between transition-all min-h-[auto] md:min-h-[170px] relative overflow-hidden shadow-lg">
+                            <div class="card-nominal rounded-xl p-4 md:p-6 flex flex-col justify-between transition-all min-h-[auto] md:min-h-[170px] relative overflow-hidden shadow-lg"
+                                 :class="t.status === 'stopped' ? 'opacity-60 grayscale-[50%] border-red-900/30' : ''">
                                 
                                 <div class="flex justify-between items-center md:items-start mb-0 md:mb-2 z-10">
                                     <div class="truncate w-full flex justify-between items-center md:block">
                                         <h4 class="font-black text-white/90 text-base md:text-xl uppercase tracking-wider truncate drop-shadow" x-text="t.entity_name"></h4>
                                         <div class="hidden md:flex flex-wrap items-center gap-2 mt-1.5">
-                                            <div class="text-[10px] 2xl:text-xs font-mono font-black tracking-widest uppercase px-2 py-0.5 rounded inline-block border bg-[#39ff14]/5 text-neon-green/80 border-neon-green/20">ONLINE</div>
+                                            <!-- Dynamic Badge Fix -->
+                                            <div class="text-[10px] 2xl:text-xs font-mono font-black tracking-widest uppercase px-2 py-0.5 rounded inline-block border"
+                                                 :class="t.status === 'running' ? 'bg-[#39ff14]/5 text-neon-green/80 border-neon-green/20' : 'bg-red-950/30 text-red-500/80 border-red-900/50'"
+                                                 x-text="t.status === 'running' ? 'ONLINE' : 'OFFLINE'"></div>
+                                            
                                             <!-- RCA Badge -->
                                             <div x-show="t.parent_uid" class="text-[9px] 2xl:text-[10px] font-mono font-bold text-neon-purple uppercase tracking-widest px-2 py-0.5 rounded bg-neon-purple/10 border border-neon-purple/30 shadow-inner">
                                                 🔗 STACK: <span x-text="t.stack_group"></span>
@@ -501,9 +506,10 @@
                                             <div x-show="!t.parent_uid" class="text-[9px] 2xl:text-[10px] font-mono font-bold text-zinc-500 uppercase tracking-widest px-2 py-0.5 rounded bg-black/40 border border-zinc-800/50" x-text="t.location || 'LOCAL'"></div>
                                         </div>
                                     </div>
-                                    <!-- Mobile Status Dot -->
+                                    <!-- Mobile Status Dot Fix -->
                                     <div class="md:hidden shrink-0 ml-3">
-                                        <div class="w-3 h-3 rounded-full bg-[#39ff14] shadow-[0_0_8px_rgba(57,255,20,0.6)]"></div>
+                                        <div class="w-3 h-3 rounded-full"
+                                             :class="t.status === 'running' ? 'bg-[#39ff14] shadow-[0_0_8px_rgba(57,255,20,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'"></div>
                                     </div>
                                 </div>
 
@@ -596,6 +602,8 @@
     <script src="/static/app.js"></script>
 </body>
 </html>
+
+
 
 
 

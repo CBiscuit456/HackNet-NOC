@@ -243,7 +243,6 @@ function nocApp() {
 
         isActiveAlert(t) {
             if (t.is_enabled === 0) return false;
-            if (t.entity_type === 'host') return false;
             if (t.entity_type === 'network' && t.location === 'WAN') return false;
             
             // RCA Logic for UI
@@ -257,7 +256,8 @@ function nocApp() {
             const cpuThresh = t.cpu_threshold || 90.0;
             const memThresh = t.mem_threshold || 90.0;
             
-            if (['vm', 'lxc', 'game'].includes(t.entity_type)) {
+            // Added 'host' so top-level hypervisors trigger capacity alerts too
+            if (['host', 'vm', 'lxc', 'game'].includes(t.entity_type)) {
                 if ((t.cpu_usage || 0) >= cpuThresh) return true;
                 const ramPct = ((t.mem_used || 0) / Math.max(t.mem_total || 1, 1)) * 100;
                 if (ramPct >= memThresh) return true;
@@ -382,6 +382,8 @@ function nocApp() {
         }
     }
 }
+
+
 
 
 
